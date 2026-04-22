@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>你被骗了</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #1a2a6c, #b21f1f, #fdbb2d);
+            padding: 20px;
+        }
+        
+        /* 弹窗容器 - 与之前样式保持一致 */
+        .modal-container {
+            background-color: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+            width: 100%;
+            max-width: 500px;
+            transition: all 0.3s ease;
+            text-align: center;
+        }
+        
+        .modal-container:hover {
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+        }
+        
+        /* 弹窗标题样式 */
+        .modal-title {
+            color: #333;
+            font-weight: 600;
+            margin-bottom: 20px;
+            font-size: 32px;
+            position: relative;
+            padding-bottom: 15px;
+        }
+        
+        .modal-title:after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 25%;
+            width: 50%;
+            height: 3px;
+            background: linear-gradient(90deg, transparent, #1a2a6c, transparent);
+            border-radius: 2px;
+        }
+        
+        /* 弹窗内容样式 */
+        .modal-content {
+            color: #444;
+            font-size: 18px;
+            line-height: 1.6;
+            margin-bottom: 30px;
+            padding: 20px;
+            background-color: rgba(26, 42, 108, 0.05);
+            border-radius: 12px;
+            border-left: 4px solid #1a2a6c;
+        }
+        
+        /* 按钮样式 - 与之前一致 */
+        .modal-button {
+            background: linear-gradient(135deg, #1a2a6c, #3a4a9c);
+            color: white;
+            border: none;
+            padding: 16px 50px;
+            font-size: 18px;
+            font-weight: 600;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 5px 15px rgba(26, 42, 108, 0.2);
+            margin-top: 10px;
+        }
+        
+        .modal-button:hover {
+            background: linear-gradient(135deg, #0a1a5c, #2a3a8c);
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(26, 42, 108, 0.3);
+        }
+        
+        .modal-button:active {
+            transform: translateY(0);
+        }
+        
+        /* 弹窗图标样式 */
+        .modal-icon {
+            font-size: 60px;
+            margin-bottom: 20px;
+            color: #1a2a6c;
+            display: inline-block;
+            width: 100px;
+            height: 100px;
+            line-height: 100px;
+            background: rgba(26, 42, 108, 0.1);
+            border-radius: 50%;
+        }
+        
+        /* 弹窗信息区域 */
+        .modal-info {
+            margin-top: 25px;
+            padding: 15px;
+            background-color: rgba(253, 187, 45, 0.1);
+            border-radius: 10px;
+            border: 1px solid rgba(253, 187, 45, 0.3);
+            color: #666;
+            font-size: 14px;
+        }
+        
+        /* 域名高亮样式 */
+        .domain-highlight {
+            color: #1a2a6c;
+            font-weight: 600;
+            background-color: rgba(26, 42, 108, 0.1);
+            padding: 2px 8px;
+            border-radius: 4px;
+        }
+        
+        /* 页脚样式 */
+        .modal-footer {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+            color: #888;
+            font-size: 14px;
+        }
+        
+        /* 动画效果 */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .modal-container {
+            animation: fadeIn 0.5s ease-out;
+        }
+        
+        @media (max-width: 500px) {
+            .modal-container {
+                padding: 25px;
+            }
+            
+            .modal-title {
+                font-size: 26px;
+            }
+            
+            .modal-content {
+                font-size: 16px;
+                padding: 15px;
+            }
+            
+            .modal-button {
+                padding: 14px 40px;
+                font-size: 16px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="modal-container">
+        <div class="modal-icon">👨</div>
+        
+        <h1 class="modal-title">儿子乖！</h1>
+        
+        <div class="modal-content">
+            <p>诶！儿子乖，懂事了，长大了学会叫爸爸了！我是你爸爸真伟大，养你这么大🥹😊☺️</p>
+            <p style="margin-top: 15px; font-size: 16px;">这是一个弹窗演示界面，点击下方按钮将跳转到目标网站。</p>
+        </div>
+        
+        <button id="confirmBtn" class="modal-button">确定</button>
+        
+        <div class="modal-info">
+            <p>点击确定重试<span class="domain-highlight">abc.woen.pics</span></p>
+            <p style="margin-top: 8px;">您也可以按键盘上的 <strong>Enter</strong> 键来重试</p>
+        </div>
+        
+        <div class="modal-footer">
+            <p>汪子涵你不会真的以为我会蠢到明文储存密码到前端吗……</p>
+        </div>
+    </div>
+
+    <script>
+        // 网站域名
+        const TARGET_DOMAIN = "https://abc.woen.pics";
+        
+        // 获取按钮元素
+        const confirmBtn = document.getElementById('confirmBtn');
+        
+        // 处理按钮点击事件
+        confirmBtn.addEventListener('click', redirectToDomain);
+        
+        // 处理回车键
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Enter') {
+                redirectToDomain();
+            }
+        });
+        
+        // 跳转到目标网站
+        function redirectToDomain() {
+            // 添加点击反馈
+            confirmBtn.innerHTML = '跳转中...';
+            confirmBtn.disabled = true;
+            confirmBtn.style.opacity = '0.8';
+            
+            // 显示跳转信息
+            const modalContent = document.querySelector('.modal-content');
+            const originalContent = modalContent.innerHTML;
+            modalContent.innerHTML = `
+                <p>正在跳转到 <span class="domain-highlight">${TARGET_DOMAIN}</span></p>
+                <p style="margin-top: 15px; font-size: 16px;">请稍候...</p>
+            `;
+            
+            // 添加跳转动画效果
+            document.querySelector('.modal-container').style.transform = 'scale(0.98)';
+            
+            // 延迟跳转，让用户看到反馈
+            setTimeout(() => {
+                // 实际跳转
+                window.location.href = TARGET_DOMAIN;
+            }, 1000);
+        }
+        
+        // 页面加载完成后聚焦到按钮（方便键盘操作）
+        window.addEventListener('DOMContentLoaded', () => {
+            // 添加加载动画
+            document.querySelector('.modal-container').style.opacity = '0';
+            document.querySelector('.modal-container').style.transform = 'translateY(20px)';
+            
+            setTimeout(() => {
+                document.querySelector('.modal-container').style.transition = 'opacity 0.5s, transform 0.5s';
+                document.querySelector('.modal-container').style.opacity = '1';
+                document.querySelector('.modal-container').style.transform = 'translateY(0)';
+            }, 100);
+            
+            // 自动聚焦到按钮，方便键盘操作
+            confirmBtn.focus();
+        });
+    </script>
+</body>
+</html>
