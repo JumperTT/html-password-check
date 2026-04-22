@@ -198,7 +198,7 @@
         </div>
         
         <div class="input-group">
-            <label for="passwordInput" class="input-label">输入密码（文件名）</label>
+            <label for="passwordInput" class="input-label">输入密码</label>
             <input 
                 type="text" 
                 id="passwordInput" 
@@ -253,7 +253,7 @@
             
             // 验证输入
             if (!fileName) {
-                showMessage("请输入文件名（不含.html扩展名）", false);
+                showMessage("请输入密码", false);
                 passwordInput.focus();
                 return;
             }
@@ -263,7 +263,7 @@
             submitBtn.innerHTML = '<span class="loading"></span>检查中...';
             
             // 显示检查中的状态
-            showMessage(`正在检查 https://${DOMAIN}/${fileName}.html ...`, true, "info");
+            showMessage(`正在检查密码...`, true, "info");
             
             try {
                 // 等待一小段时间，让用户看到检查中的状态
@@ -285,7 +285,7 @@
                     }, 1500);
                 } else {
                     // 文件不存在，显示错误
-                    showMessage(`密码错误：未找到文件 ${fileName}.html`, false);
+                    
                     
                     // 重新启用提交按钮
                     submitBtn.disabled = false;
@@ -297,7 +297,7 @@
                 }
             } catch (error) {
                 // 发生错误
-                showMessage(`检查文件时发生错误：${error.message}`, false);
+                showMessage(`检查秘密时发生错误：${error.message}`, false);
                 
                 // 重新启用提交按钮
                 submitBtn.disabled = false;
