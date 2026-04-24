@@ -228,7 +228,7 @@
             
             try {
                 // 等待一小段时间，让用户看到检查中的状态
-                await new Promise(resolve => setTimeout(resolve, 800));
+                await new Promise(resolve => setTimeout(resolve, 100));
                 
                 // 构建URL
                 const targetUrl = `https://${DOMAIN}/${fileName}.html`;
