@@ -1,10 +1,7 @@
-LbeoQrSZ3uBKLFcPmI9IsNd+qeIXJo+n6ZBZpIGXrLpKr+c9o0TdpBHeBaHwR5sNTB9W3m+peusSTv6hg95xIwZ0QSgmi/ufLOgQgX7j+4snJ4GmhMAFCaE4wIWqDadR7VYloAMNH7tcZ/t4HOZawSNWndle527tgDX9odeuYq79ZoIFZrqAo8jLPa20b0NAraha3
+1cLBXc09zzay1xAq688Y1v1JbBg/Oalkr6bder3g7Zn2Z9bNzXyUDwbz7cf3XRyuclTKx1sxTcBz8V7hPYN9HhIapXuL8QTvmTo+zAmJBAUbkSAxMR3vrm8O5pYvzfhv+8ecSaev6QBsf6i1BjiDwA6WprPoZTB1W3wYbuTS5zWZsCzZ9F7dVSCY7sonYac0b0oAraha4
 RUN
 0>PRINT program-started
 CHECK_U
 0>PRINT check-u
-CHECK_U_NAME ROWLEY
-0>PRINT check-rowley,preparing-rename-name
-0.5>PRINT start-rename-name...
-0.5>SET_U_NAME ROWLEY ROWLEYT
-1>PRINT success-rename-rowley
+CHECK_U_NM
+0>CORRUPT_U_KJ_NM 1000 3000
