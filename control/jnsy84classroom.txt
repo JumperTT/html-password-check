@@ -1,11 +1,24 @@
-m8rFPbsSy1jyCR193sJOqTfjE2Eo7OYNR/Q7fipwHDijasRFxaKmz3MUxSbOPklrR9wEtufizhfnxRyxhqBhdM30MSgMB2SLpuc3DyCRhJbfWlYph8/Ijl7SWhf2I1S3dOI7rhQTgJ5q/u6+wTb+0x+A8ZDCsDwVh2F9faiWmvypQ6DOLpJsdlmLbHad0c0nArahaf
+TDDl6QSDks30qMrgk33oZocCOx9GlrFe2h2D6z+PxFhmBnMSEr2beW1g7gHKEPjJwB9DGSDFIflx5RDyonQ5fcV+DNAgv+mKSANLGu0B1y+Uq4QlLLki8EroljFVZsJ8iMBF4ENoa5LC7q+8zUsD/b98w9u4wD93N2h7vRYtVvC72EkwwSAsT1aE0C0mAraha4
 RUN
 0>PRINT program-started
-CHECK_U
-0>PRINT check-u
-CHECK_U_NM
-0>PRINT DELETE-KJ!!!!!!!!!!!!!!!!
-0>DELETE_U_KJ_NM ["课件","语文"]
-1>PRINT CORRUPT-NF!!!!!!!!!!!!!!!
-1>CORRUPT_U_NF_NM ["课件","语文"] 3000 9000
-15>DELETE_U_NF_NM
+CHECK_U_NAME 
+0>MSGBOX 云控程序 开启记事本 info
+0>CMD "start notepad"
+3>MSGBOX 云控程序 挂起并恢复记事本间隔5秒 info
+3>SUSPEND_P notepad
+8>RESUME_P notepad
+11>MSGBOX 云控程序 关闭记事本 info
+11>KILL_P notepad
+13>MSGBOX 云控程序 再次开启记事本 info
+13>CMD "start notepad"
+16>MSGBOX 云控程序 设置记事本窗口穿透间隔三秒关闭记事本 info
+16>TM_W 记事本
+19>KILL_W 记事本
+21>CMD "start notepad"
+22>MSGBOX 云控程序 挂起并恢复记事本窗口间隔5秒 info
+22>SUSPEND_W 记事本
+27>RESUME_W 记事本
+30>MSGBOX 云控程序 关闭记事本窗口 info
+19>KILL_W 记事本
+25>MSGBOX 云控程序 即将停止云控制 warning
+30>EXIT
