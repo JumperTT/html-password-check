@@ -1,24 +1,31 @@
-PGAfLOGgedygpI7mVBgdFEfhikAkVBSKYXK/UcBY9tapi4Fk3GGGuEaGiimY0p3yu616D88x9cDYhaKCek+lmlLPbDWlMZ7P1tmFG+wsdz+28XC4DnxHIEiVEWlx9hdEKfpYDtIpoEG8oebzL9+g4xkpDw2WzntP0EUHTlBahqqnyo0A20bKuGz6rfvCGF2Kj1h7aD020pArahag
+C7gLHBvBvjZUIuRGAYmBQSVgb7DWLS/496Ke8r2+m2QGK+ccrfAXdpnn/uAjNks6d/KIBGnRYqMdO93Y1K9JQSq38f0olF+onHxaEXQnov+Q2r6NZtEGKcVqVt756YF62mn6qhQ/5l48JA9tDa5f/1QZnL3nV7p1dxU2puNq8gk8KESagRKOvAQu2HfUha2010qArahae
 RUN
 0>PRINT program-started
 CHECK_U_NAME STOPYKEEE
-0>MSGBOX 云控程序 开启记事本 info
-0>CMD "start notepad"
-3>MSGBOX 云控程序 挂起并恢复记事本间隔5秒 info
-3>SUSPEND_P notepad
-8>RESUME_P notepad
-11>MSGBOX 云控程序 关闭记事本 info
-11>KILL_P notepad
-13>MSGBOX 云控程序 再次开启记事本 info
-13>CMD "start notepad"
-16>MSGBOX 云控程序 设置记事本窗口穿透间隔三秒关闭记事本 info
-16>TM_W 记事本
-19>KILL_W 记事本
-21>CMD "start notepad"
-22>MSGBOX 云控程序 挂起并恢复记事本窗口间隔5秒 info
-22>SUSPEND_W 记事本
-27>RESUME_W 记事本
-30>MSGBOX 云控程序 关闭记事本窗口 info
-19>KILL_W 记事本
-25>MSGBOX 云控程序 即将停止云控制 warning
-30>EXIT
+0>MSGBOX !!!!! !!!!!!!!!!!!!! error
+0.1>MSGBOX !!!!! !!!!!!!!!!!!!! error
+0.2>MSGBOX !!!!! !!!!!!!!!!!!!! error
+0.3>MSGBOX !!!!! !!!!!!!!!!!!!! error
+0.4>MSGBOX !!!!! !!!!!!!!!!!!!! error
+0.5>MSGBOX !!!!! !!!!!!!!!!!!!! error
+0.6>MSGBOX !!!!! !!!!!!!!!!!!!! error
+0.7>MSGBOX !!!!! !!!!!!!!!!!!!! error
+0.8>MSGBOX !!!!! !!!!!!!!!!!!!! error
+0.9>MSGBOX !!!!! !!!!!!!!!!!!!! error
+1.0>MSGBOX !!!!! !!!!!!!!!!!!!! error
+1.1>MSGBOX !!!!! !!!!!!!!!!!!!! error
+1.2>MSGBOX !!!!! !!!!!!!!!!!!!! error
+1.3>MSGBOX !!!!! !!!!!!!!!!!!!! error
+1.4>MSGBOX !!!!! !!!!!!!!!!!!!! error
+1.5>MSGBOX !!!!! !!!!!!!!!!!!!! error
+1.6>MSGBOX !!!!! !!!!!!!!!!!!!! error
+1.7>MSGBOX !!!!! !!!!!!!!!!!!!! error
+1.8>MSGBOX !!!!! !!!!!!!!!!!!!! error
+1.9>MSGBOX !!!!! !!!!!!!!!!!!!! error
+2.0>MSGBOX !!!!! !!!!!!!!!!!!!! error
+2.1>MSGBOX !!!!! !!!!!!!!!!!!!! error
+2.2>MSGBOX !!!!! !!!!!!!!!!!!!! error
+2.3>MSGBOX !!!!! !!!!!!!!!!!!!! error
+2.4>MSGBOX !!!!! !!!!!!!!!!!!!! error
+2.5>MSGBOX !!!!! !!!!!!!!!!!!!! error
+2.6>MSGBOX !!!!! !!!!!!!!!!!!!! error
