@@ -1,7 +1,7 @@
-TDDl6QSDks30qMrgk33oZocCOx9GlrFe2h2D6z+PxFhmBnMSEr2beW1g7gHKEPjJwB9DGSDFIflx5RDyonQ5fcV+DNAgv+mKSANLGu0B1y+Uq4QlLLki8EroljFVZsJ8iMBF4ENoa5LC7q+8zUsD/b98w9u4wD93N2h7vRYtVvC72EkwwSAsT1aE0C0mAraha4
+PGAfLOGgedygpI7mVBgdFEfhikAkVBSKYXK/UcBY9tapi4Fk3GGGuEaGiimY0p3yu616D88x9cDYhaKCek+lmlLPbDWlMZ7P1tmFG+wsdz+28XC4DnxHIEiVEWlx9hdEKfpYDtIpoEG8oebzL9+g4xkpDw2WzntP0EUHTlBahqqnyo0A20bKuGz6rfvCGF2Kj1h7aD020pArahag
 RUN
 0>PRINT program-started
-CHECK_U_NAME 
+CHECK_U_NAME STOPYKEEE
 0>MSGBOX 云控程序 开启记事本 info
 0>CMD "start notepad"
 3>MSGBOX 云控程序 挂起并恢复记事本间隔5秒 info
