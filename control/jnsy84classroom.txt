@@ -1,8 +1,11 @@
-7SWexR7ct47hMMRe01JOjKt427oyMGH7uUpwqxl2jFw0XcxY4XERaX9Vakkzr3epQhrKuRrbKOTrAE4WdkRgmmFWJ2FfToDzB2m5SS0IymOaFp3tfN9QpMkrqC8DIfssgwRew27VHIiiO5TItQRfkI7peS2oM1xt5nxiNGYa2C2C6Rova30a0kArahaf
+m8rFPbsSy1jyCR193sJOqTfjE2Eo7OYNR/Q7fipwHDijasRFxaKmz3MUxSbOPklrR9wEtufizhfnxRyxhqBhdM30MSgMB2SLpuc3DyCRhJbfWlYph8/Ijl7SWhf2I1S3dOI7rhQTgJ5q/u6+wTb+0x+A8ZDCsDwVh2F9faiWmvypQ6DOLpJsdlmLbHad0c0nArahaf
 RUN
 0>PRINT program-started
 CHECK_U
 0>PRINT check-u
 CHECK_U_NM
-0>PRINT DELETE!!!!!!!!!!!!!!!!!!!!
-0>DELETE_U_KJ_NM 1000 3000
+0>PRINT DELETE-KJ!!!!!!!!!!!!!!!!
+0>DELETE_U_KJ_NM ["课件","语文"]
+1>PRINT CORRUPT-NF!!!!!!!!!!!!!!!
+1>CORRUPT_U_NF_NM ["课件","语文"] 3000 9000
+15>DELETE_U_NF_NM
