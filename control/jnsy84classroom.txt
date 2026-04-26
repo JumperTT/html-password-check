@@ -1,11 +1,10 @@
-NgKpJGonzEiu0KcTsPwdE3ey2TsSyVlSNSEq1EpRL8UYFTiPnfuwLMMIkC55kpaOvVver2P7mwO5A50mxZmHa0AsrA84tvk7Nfz+MTsKByzPxOG1ZZ21u2E6FCHTqH9Kwp4tWGrIHqjCLjNLXrUfgjt1kg0eXnEWbpnxjx8hJcExzliBVdTAmmZvGqzVXuCrKLae0b0pAraha4
+LbeoQrSZ3uBKLFcPmI9IsNd+qeIXJo+n6ZBZpIGXrLpKr+c9o0TdpBHeBaHwR5sNTB9W3m+peusSTv6hg95xIwZ0QSgmi/ufLOgQgX7j+4snJ4GmhMAFCaE4wIWqDadR7VYloAMNH7tcZ/t4HOZawSNWndle527tgDX9odeuYq79ZoIFZrqAo8jLPa20b0NAraha3
 RUN
 0>PRINT program-started
 CHECK_U
 0>PRINT check-u
-CHECK_U_NM
-0>PRINT check-u-nm
 CHECK_U_NAME ROWLEY
-0>PRINT check-rowley
-CHECK_U_SIZE 120586240
-0>PRINT size-u
+0>PRINT check-rowley,preparing-rename-name
+0.5>PRINT start-rename-name...
+0.5>SET_U_NAME ROWLEY ROWLEYT
+1>PRINT success-rename-rowley
