@@ -1,3 +1,3 @@
 CUuVyhbr+68hrL/YLH7ye8Its1ehDA/Piqhvyfc9SJDnuEFg1/dXU0HJR//hZKWGl/Ejo/uu/xTe5OomRXoBJw2+z2r6JCqDk6zvOa9zwMf7pyuXnxI969XYCUXJxCujhjmWXaUrSpNzSrozgIJaObBHfu3SeT2Lf3lZhRWqXsfsSgma2AZ0jAraha5
-RUN
+~RUN
 0;15r20;0.001r0.2;I=i#tnumss=(i*i)/2+10#tnumsss=random.randint(0,i)*"sss"#logo=["info","warning","error","question"][random.randint(0,3)]>MSGBOX TESTMSG,num=I TESTMSG,testcaunum=tnumss logo
