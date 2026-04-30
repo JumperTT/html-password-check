@@ -1,5 +1,3 @@
-VER53Xuv182kNqKJU7qir1pHrRedWLrXVwkh8ePrmNM4LPojoX1jSS8thI3Hy7l/Zp0BKCOi/Jxx3L+16h03V87CwdaR8fzilWYluGx35lFpWBQ8frFXVI5ObkwHrV43w7k1haWsMGlkI7v042qrgoiSQOBmvYKUIaS9TqMFNHyyws2VKSwa10b0kArahaG
+GdjBjTrtLeTI1A0cjaBp/MYJaJ72phg4ElFafgX468fIaLSmh5JSETqD2EywDzdRyNjtlb+e6BMrQeNW4erJKWlQoXrOkqVtlHrmhynUVPAvNNu0aj7A05S9lc1BGnbnETZOvjNhQKmoEjJYEjGQ1GbNvvfS6QfJR9kqjYlWSWVgncUp0Jawa1000mArahad
 RUN
-0;0;0>PRINT program-started
-CHECK_P_NAME notepad
 5r10;10r15;2r3;I=i,tnumss=(i*i)/2+10,logo=["info","warning","error","question"][random.randint(0,3)]>MSGBOX TESTMSG,num=i TESTMSG,testcaunum=tnumss logo
