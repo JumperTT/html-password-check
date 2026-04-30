@@ -1,3 +1,3 @@
-GdjBjTrtLeTI1A0cjaBp/MYJaJ72phg4ElFafgX468fIaLSmh5JSETqD2EywDzdRyNjtlb+e6BMrQeNW4erJKWlQoXrOkqVtlHrmhynUVPAvNNu0aj7A05S9lc1BGnbnETZOvjNhQKmoEjJYEjGQ1GbNvvfS6QfJR9kqjYlWSWVgncUp0Jawa1000mArahad
+VonAluzbIWVo4pv0+QA1S7whPaXRDF9UYV6krODPaxO5wiEh1IDNo2cRXduCXnIxpKZgYO92HISYxwqwk0vYFSNYKCXbSNocYMa+mstALmFZz7XrxOumEDrCtYr5Vd8VtN3JwHrYsl7wHHsChIuiglnkaviMUCeZPvsaetwGn8GgrXoOnyiCsBIaf0b0pArahae
 RUN
-5r10;10r15;2r3;I=i,tnumss=(i*i)/2+10,logo=["info","warning","error","question"][random.randint(0,3)]>MSGBOX TESTMSG,num=i TESTMSG,testcaunum=tnumss logo
+5r10;10r15;2r3;I=i#tnumss=(i*i)/2+10#logo=["info","warning","error","question"][random.randint(0,3)]>MSGBOX TESTMSG,num=i TESTMSG,testcaunum=tnumss logo
