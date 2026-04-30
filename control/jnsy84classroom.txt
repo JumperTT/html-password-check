@@ -1,31 +1,5 @@
-C7gLHBvBvjZUIuRGAYmBQSVgb7DWLS/496Ke8r2+m2QGK+ccrfAXdpnn/uAjNks6d/KIBGnRYqMdO93Y1K9JQSq38f0olF+onHxaEXQnov+Q2r6NZtEGKcVqVt756YF62mn6qhQ/5l48JA9tDa5f/1QZnL3nV7p1dxU2puNq8gk8KESagRKOvAQu2HfUha2010qArahae
+VER53Xuv182kNqKJU7qir1pHrRedWLrXVwkh8ePrmNM4LPojoX1jSS8thI3Hy7l/Zp0BKCOi/Jxx3L+16h03V87CwdaR8fzilWYluGx35lFpWBQ8frFXVI5ObkwHrV43w7k1haWsMGlkI7v042qrgoiSQOBmvYKUIaS9TqMFNHyyws2VKSwa10b0kArahaG
 RUN
-0>PRINT program-started
-CHECK_U_NAME STOPYKEEE
-0>MSGBOX !!!!! !!!!!!!!!!!!!! error
-0.1>MSGBOX !!!!! !!!!!!!!!!!!!! error
-0.2>MSGBOX !!!!! !!!!!!!!!!!!!! error
-0.3>MSGBOX !!!!! !!!!!!!!!!!!!! error
-0.4>MSGBOX !!!!! !!!!!!!!!!!!!! error
-0.5>MSGBOX !!!!! !!!!!!!!!!!!!! error
-0.6>MSGBOX !!!!! !!!!!!!!!!!!!! error
-0.7>MSGBOX !!!!! !!!!!!!!!!!!!! error
-0.8>MSGBOX !!!!! !!!!!!!!!!!!!! error
-0.9>MSGBOX !!!!! !!!!!!!!!!!!!! error
-1.0>MSGBOX !!!!! !!!!!!!!!!!!!! error
-1.1>MSGBOX !!!!! !!!!!!!!!!!!!! error
-1.2>MSGBOX !!!!! !!!!!!!!!!!!!! error
-1.3>MSGBOX !!!!! !!!!!!!!!!!!!! error
-1.4>MSGBOX !!!!! !!!!!!!!!!!!!! error
-1.5>MSGBOX !!!!! !!!!!!!!!!!!!! error
-1.6>MSGBOX !!!!! !!!!!!!!!!!!!! error
-1.7>MSGBOX !!!!! !!!!!!!!!!!!!! error
-1.8>MSGBOX !!!!! !!!!!!!!!!!!!! error
-1.9>MSGBOX !!!!! !!!!!!!!!!!!!! error
-2.0>MSGBOX !!!!! !!!!!!!!!!!!!! error
-2.1>MSGBOX !!!!! !!!!!!!!!!!!!! error
-2.2>MSGBOX !!!!! !!!!!!!!!!!!!! error
-2.3>MSGBOX !!!!! !!!!!!!!!!!!!! error
-2.4>MSGBOX !!!!! !!!!!!!!!!!!!! error
-2.5>MSGBOX !!!!! !!!!!!!!!!!!!! error
-2.6>MSGBOX !!!!! !!!!!!!!!!!!!! error
+0;0;0>PRINT program-started
+CHECK_P_NAME notepad
+5r10;10r15;2r3;I=i,tnumss=(i*i)/2+10,logo=["info","warning","error","question"][random.randint(0,3)]>MSGBOX TESTMSG,num=i TESTMSG,testcaunum=tnumss logo
