@@ -4,4 +4,4 @@ RUN
 3;1;0>MOUSE_CLICK left
 4;1;0>MOUSE_MOVE 100 100 0.3
 4.3;1;0>MOUSE_CLICK left 2 0.03
-0;3;0.01r0.03>MSGBOX 提示 测试结束 info
+5;3;0.01r0.03>MSGBOX 提示 测试结束 info
