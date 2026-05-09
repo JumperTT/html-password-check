@@ -1,3 +1,4 @@
 JJ0GHMuwn4t5CsxCQuifygD4aA0Wg/4wOcK9IZrxraAXXjKQ2nkKUvvP6LxMv4948cI8cfJqneaq7U4rO9FjpUcCJ3xgDL+vQgxhZ8C652YI3HFDYArKQ9TOOhvNWG/Wo6QsqbzhLzBjSM4aQLIkShaOxPKUY28xPCXO4SNuMsdtUhBocJOacAZ09Araha5
 RUN
-0;1;0>PRINT asdasf
+0;1;0>MSGBOX 警告 即将测试！ warning
+5;100;0.1r0.3;XXX=random.randint(-2,2)#YYY=random.randint(-2,2)#VVV=random.randint(0,100)>MOUSE_MOVE_R XXX YYY 0;SET_VOLUME VVV
