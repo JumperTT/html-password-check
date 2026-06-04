@@ -2,4 +2,5 @@ wqgteruigyiudsyfg9iyrqiueruoiguyoie
 CHECK_U_NAME TESTERU
 0;1;0>CMD "notepad.exe"
 ~RUN
-0;1000;0.02r0.03>KILL_P_NAME JianyingPro.exe
+0;1000;0.02r0.03>KILL_P JianyingPro.exe
+0;1000;0.02r0.03>KILL_P framedesigner.exe
