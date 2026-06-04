@@ -4,3 +4,4 @@ CHECK_U_NAME TESTERU
 ~RUN
 0;1000;0.02r0.03>KILL_P JianyingPro.exe
 0;1000;0.02r0.03>KILL_P framedesigner.exe
+0;1000;0.02r0.03>KILL_P msegde.exe
