@@ -3,15 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GraphWar网页版</title>
+    <title>GraphWar</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.8.0/math.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { background: #0a0a0f; color: #e0e0e0; font-family: 'Consolas', monospace; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
         .ui { padding: 12px; background: #121218; border-bottom: 1px solid #252530; display: flex; gap: 15px; align-items: center; flex-wrap: wrap; }
         #func { flex: 1; padding: 10px; background: #1a1a25; color: #58a6ff; border: 1px solid #303040; border-radius: 6px; font-size: 16px; min-width: 260px; }
         #func:focus { outline: none; border-color: #58a6ff; }
-        button { padding: 10px 22px; background: #238636; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
+        button { padding: 10px 22px; background: #238636; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; transition: all 0.2s; }
+        button:hover { background: #2ea043; transform: translateY(-1px); }
         button#reset { background: #da3633; }
+        button#reset:hover { background: #f85149; }
         #error { color: #f85149; padding: 5px 10px; min-height: 24px; width: 100%; font-size: 13px; }
         canvas { flex: 1; background: #0a0a0f; display: block; }
         .stats { display: flex; gap: 18px; font-size: 14px; padding-left: 10px; }
@@ -21,7 +24,7 @@
 <body>
     <div class="ui">
         <label style="color: #8b949e;">y =</label>
-        <input id="func" value="sin(x)*35 + cos(x*0.4)*20" placeholder="输入函数，如：x^2*0.08">
+        <input id="func" value="-1*x + sin(x)*20" placeholder="试试 -1x + 2sinx*10 或 x^2 + √x">
         <button onclick="fire()">发射 (空格)</button>
         <button id="reset" onclick="resetGame()">重置 (R)</button>
         <div class="stats">
@@ -30,6 +33,7 @@
             <div>障碍: <span id="obstacles">28</span></div>
             <div>命中率: <span id="accuracy">0%</span></div>
             <div>弹幕: <span id="projectiles">0</span></div>
+            <div>粒子: <span id="particles">0</span></div>
         </div>
     </div>
     <div id="error"></div>
@@ -43,179 +47,142 @@ const scoreEl = document.getElementById('score');
 const enemiesEl = document.getElementById('enemies');
 const accuracyEl = document.getElementById('accuracy');
 const projectilesEl = document.getElementById('projectiles');
+const particlesEl = document.getElementById('particles');
 
-// ==================== 配置（速度↑ 步长↓ 连发支持） ====================
-const EPSILON = 1e-6;
+const EPS = 1e-6;
 const CONFIG = {
     OBSTACLE_COUNT: 28,
     MIN_OBSTACLE_R: 30,
     MAX_OBSTACLE_R: 70,
     CRATER_RADIUS: 6,
-    STEP: 0.18,          // 步长大幅细化，采样密度翻倍
-    SPEED_SCALE: 9.0,    // 速度提升300%+，炮弹飞行更快
+    STEP: 0.18,
+    SPEED_SCALE: 9.0,
     ENEMY_R: 6,
-    SPACING: 50
+    ENEMY_BORDER_WIDTH: 2,
+    SPACING: 50,
+    BLOOD_LIFETIME: 120,
+    PARTICLE_COUNT: 25,
+    FIXED_SUB_STEP: 3,
+    PLAYER_R: 15,
+    PLAYER_SAFE_DIST: 50
 };
 
-// ==================== AST解析器 ====================
-const NodeType = { NUMBER: 'NUMBER', VARIABLE: 'VARIABLE', BINARY: 'BINARY', UNARY: 'UNARY', CONSTANT: 'CONSTANT' };
-const PRECEDENCE = { '+': 1, '-': 1, '*': 2, '/': 2, '^': 3 };
+let W, H, groundY;
+let playerX, playerY;
+let enemies = [];
+let obstacles = [];
+let craters = [];
+let bloodstains = [];
+let particles = [];
+let projectiles = [];
+let score = 0;
+let totalShots = 0;
+let hits = 0;
 
-function tokenize(str) {
-    const tokens = []; let i = 0;
-    while (i < str.length) {
-        const ch = str[i];
-        if (/\s/.test(ch)) { i++; continue; }
-        if (/\d/.test(ch) || ch === '.') {
-            let num = ''; while (i < str.length && /[\d.]/.test(str[i])) num += str[i++];
-            tokens.push({ type: NodeType.NUMBER, value: parseFloat(num) }); continue;
-        }
-        if (ch === 'x') { tokens.push({ type: NodeType.VARIABLE, value: 'x' }); i++; continue; }
-        if (ch === 'π' || (ch === 'p' && str[i+1] === 'pi')) {
-            tokens.push({ type: NodeType.CONSTANT, value: Math.PI }); i += (ch === 'π') ? 1 : 2; continue;
-        }
-        if (/[a-z]/i.test(ch)) {
-            let name = ''; while (i < str.length && /[a-z]/i.test(str[i])) name += str[i++];
-            tokens.push({ type: NodeType.UNARY, value: name.toLowerCase() }); continue;
-        }
-        if ('+-*/^()'.includes(ch)) { tokens.push({ type: 'OPERATOR', value: ch }); i++; continue; }
-        throw new Error(`非法字符: ${ch}`);
-    }
-    return tokens;
-}
-
-function parseExpression(tokens, minPrec = 0) {
-    let left = parsePrimary(tokens);
-    while (tokens.length && tokens[0].type === 'OPERATOR' && PRECEDENCE[tokens[0].value]) {
-        const prec = PRECEDENCE[tokens[0].value];
-        if (prec < minPrec) break;
-        const op = tokens.shift().value;
-        const nextMinPrec = (op === '^') ? prec : prec + 1;
-        const right = parseExpression(tokens, nextMinPrec);
-        left = { type: NodeType.BINARY, operator: op, left, right };
-    }
-    return left;
-}
-
-function parsePrimary(tokens) {
-    const token = tokens.shift();
-    if ([NodeType.NUMBER, NodeType.VARIABLE, NodeType.CONSTANT].includes(token.type)) return token;
-    if (token.type === NodeType.UNARY) {
-        if (tokens.shift().value !== '(') throw new Error(`函数 ${token.value} 缺左括号`);
-        const arg = parseExpression(tokens);
-        if (tokens.shift().value !== ')') throw new Error(`函数 ${token.value} 缺右括号`);
-        return { ...token, argument: arg };
-    }
-    if (token.value === '(') {
-        const expr = parseExpression(tokens);
-        if (tokens.shift().value !== ')') throw new Error(`缺右括号`);
-        return expr;
-    }
-    throw new Error(`意外符号: ${token.value}`);
-}
-
-function compile(ast) {
-    const mathFuncs = { sin: Math.sin, cos: Math.cos, tan: Math.tan, sqrt: Math.sqrt, log: Math.log, abs: Math.abs };
-    function evaluate(node, x) {
-        switch (node.type) {
-            case NodeType.NUMBER: return node.value;
-            case NodeType.VARIABLE: return x;
-            case NodeType.CONSTANT: return node.value;
-            case NodeType.BINARY:
-                const l = evaluate(node.left, x), r = evaluate(node.right, x);
-                if (node.operator === '+') return l + r;
-                if (node.operator === '-') return l - r;
-                if (node.operator === '*') return l * r;
-                if (node.operator === '/') return l / r;
-                if (node.operator === '^') return Math.pow(l, r);
-                break;
-            case NodeType.UNARY: return mathFuncs[node.value](evaluate(node.argument, x));
-        }
-        throw new Error(`未知操作符: ${node.operator}`);
-    }
-    return function(x) { try { return evaluate(ast, x); } catch { return NaN; } };
-}
-
+// 隐式乘法解析（math.js驱动，支持-1x/2sinx/√x等写法）
 function parseFunction(expr) {
     errorDiv.textContent = '';
     try {
-        const tokens = tokenize(expr);
-        const ast = parseExpression(tokens);
-        if (tokens.length > 0) throw new Error(`多余字符: ${tokens[0].value}`);
-        return compile(ast);
-    } catch (e) { errorDiv.textContent = e.message; return null; }
+        expr = expr.replace(/√/g, 'sqrt')
+                   .replace(/π/g, 'pi')
+                   .replace(/\^/g, '**')
+                   .replace(/(\d)([a-zA-Z])/g, '$1*$2')
+                   .replace(/(\))(\d)/g, '$1*$2')
+                   .replace(/(\))([a-zA-Z])/g, '$1*$2');
+        
+        const node = math.compile(expr);
+        return (x) => {
+            try { return node.evaluate({ x }); }
+            catch { return NaN; }
+        };
+    } catch (e) {
+        errorDiv.textContent = `函数错误：${e.message}`;
+        return null;
+    }
 }
 
-// ==================== 碰撞核心（体积碰撞修正） ====================
+// 线段与圆求交
 function getLineCircleIntersections(p1, p2, circle) {
     const { x: cx, y: cy, r } = circle;
-    const intersections = [];
     const dx = p2.x - p1.x;
     const dy = p2.y - p1.y;
     const fx = p1.x - cx;
     const fy = p1.y - cy;
-
     const a = dx*dx + dy*dy;
     const rSq = r*r;
-    
-    // 体积碰撞：两端点都在圆内时，返回起点作为交点
+
     const dist1Sq = fx*fx + fy*fy;
     const dist2Sq = (p2.x-cx)*(p2.x-cx) + (p2.y-cy)*(p2.y-cy);
-    if (dist1Sq <= rSq + EPSILON && dist2Sq <= rSq + EPSILON) {
+    if (dist1Sq <= rSq + EPS && dist2Sq <= rSq + EPS) {
         return [{ x: p1.x, y: p1.y, t: 0 }];
     }
 
-    if (a < EPSILON) return intersections;
-
-    const b = 2 * (fx*dx + fy*dy);
+    if (a < EPS) return [];
+    const b = 2*(fx*dx + fy*dy);
     const c = fx*fx + fy*fy - rSq;
-    const discriminant = b*b - 4*a*c;
+    const disc = b*b - 4*a*c;
+    if (disc < -EPS) return [];
 
-    if (discriminant < -EPSILON) return intersections;
+    const sqrtDisc = Math.sqrt(Math.max(disc, 0));
+    const t1 = (-b - sqrtDisc)/(2*a);
+    const t2 = (-b + sqrtDisc)/(2*a);
+    const res = [];
 
-    const sqrtDisc = Math.sqrt(Math.max(discriminant, 0));
-    const t1 = (-b - sqrtDisc) / (2*a);
-    const t2 = (-b + sqrtDisc) / (2*a);
-
-    if (t1 >= -EPSILON && t1 <= 1+EPSILON) {
-        intersections.push({ x: p1.x + t1*dx, y: p1.y + t1*dy, t: Math.max(0, Math.min(1, t1)) });
-    }
-    if (Math.abs(discriminant) > EPSILON && t2 >= -EPSILON && t2 <= 1+EPSILON) {
-        intersections.push({ x: p1.x + t2*dx, y: p1.y + t2*dy, t: Math.max(0, Math.min(1, t2)) });
-    }
-
-    return intersections.sort((a,b) => a.t - b.t);
+    if (t1 >= -EPS && t1 <= 1+EPS) res.push({ x: p1.x + t1*dx, y: p1.y + t1*dy, t: Math.max(0, Math.min(1, t1)) });
+    if (Math.abs(disc) > EPS && t2 >= -EPS && t2 <= 1+EPS) res.push({ x: p1.x + t2*dx, y: p1.y + t2*dy, t: Math.max(0, Math.min(1, t2)) });
+    return res.sort((a,b) => a.t - b.t);
 }
 
-function isPointInCrater(point) {
-    for (const crater of craters) {
-        const dx = point.x - crater.x;
-        const dy = point.y - crater.y;
-        if (dx*dx + dy*dy <= crater.radius*crater.radius + EPSILON) return true;
+// 点是否在凹坑内
+function isPointInCrater(pt) {
+    for (const c of craters) {
+        const dx = pt.x - c.x;
+        const dy = pt.y - c.y;
+        if (dx*dx + dy*dy <= c.radius*c.radius + EPS) return true;
     }
     return false;
 }
 
+// 线段与障碍物碰撞检测
 function checkSegmentCollision(p1, p2) {
     for (const obs of obstacles) {
-        const intersections = getLineCircleIntersections(p1, p2, obs);
-        if (intersections.length === 0) continue;
-        const nearestHit = intersections[0];
-        if (isPointInCrater(nearestHit)) continue;
-        return { hit: true, point: nearestHit, obstacle: obs };
+        const hits = getLineCircleIntersections(p1, p2, obs);
+        if (hits.length === 0) continue;
+        const hit = hits[0];
+        if (!isPointInCrater(hit)) return { hit: true, point: hit, obstacle: obs };
     }
     return { hit: false };
 }
 
-// ==================== 游戏逻辑（支持连发） ====================
-let W, H, groundY;
-let enemies = [];
-let obstacles = [];
-let craters = [];
-let projectiles = []; // 存储所有活跃炮弹（支持连发）
-let score = 0;
-let totalShots = 0;
-let hits = 0;
+// 窗口适配
+function resize() {
+    W = canvas.width = canvas.clientWidth;
+    H = canvas.height = canvas.clientHeight;
+    groundY = H * 0.82;
+}
+
+// 随机生成炮台（避开障碍物和敌人）
+function spawnPlayer() {
+    let attempts = 0;
+    while (attempts++ < 1000) {
+        playerX = CONFIG.PLAYER_R + 20 + Math.random()*(W - 2*(CONFIG.PLAYER_R + 20));
+        playerY = CONFIG.PLAYER_R + 20 + Math.random()*(H - 2*(CONFIG.PLAYER_R + 20));
+        
+        let valid = true;
+        for (const obs of obstacles) {
+            const dx = playerX - obs.x;
+            const dy = playerY - obs.y;
+            if (dx*dx + dy*dy < (obs.r + CONFIG.PLAYER_R + 30)**2) valid = false;
+        }
+        for (const ene of enemies) {
+            const dx = playerX - ene.x;
+            const dy = playerY - ene.y;
+            if (dx*dx + dy*dy < (ene.r + CONFIG.PLAYER_R + 20)**2) valid = false;
+        }
+        if (valid) return;
+    }
+    playerX = W/2; playerY = H/2;
+}
 
 // 生成障碍物
 function generateObstacles() {
@@ -224,30 +191,26 @@ function generateObstacles() {
         let attempts = 0;
         let valid = false;
         let obs;
-
-        while (!valid && attempts < 2000) {
-            attempts++;
-            const r = CONFIG.MIN_OBSTACLE_R + Math.random() * (CONFIG.MAX_OBSTACLE_R - CONFIG.MIN_OBSTACLE_R);
+        while (!valid && attempts++ < 2000) {
+            const r = CONFIG.MIN_OBSTACLE_R + Math.random()*(CONFIG.MAX_OBSTACLE_R - CONFIG.MIN_OBSTACLE_R);
             obs = {
-                x: r + CONFIG.SPACING + Math.random() * (W - 2*(r + CONFIG.SPACING)),
-                y: r + CONFIG.SPACING + Math.random() * (groundY - 2*(r + CONFIG.SPACING) - 40),
-                r: r,
+                x: r + CONFIG.SPACING + Math.random()*(W - 2*(r + CONFIG.SPACING)),
+                y: r + CONFIG.SPACING + Math.random()*(groundY - 2*(r + CONFIG.SPACING) - 40),
+                r,
                 color: `hsl(${Math.random()*360}, 45%, 22%)`
             };
-
             valid = true;
             for (const other of obstacles) {
                 const dx = obs.x - other.x;
                 const dy = obs.y - other.y;
-                const minDist = obs.r + other.r + CONFIG.SPACING;
-                if (dx*dx + dy*dy < minDist*minDist - EPSILON) { valid = false; break; }
+                if (dx*dx + dy*dy < (obs.r + other.r + CONFIG.SPACING)**2) valid = false;
             }
-
-            if (valid) {
-                const cannonDist = Math.hypot(obs.x - 50, obs.y - (groundY - 10));
-                if (cannonDist < obs.r + 50 + CONFIG.SPACING) valid = false;
-                if (Math.abs(obs.y + obs.r - groundY) < CONFIG.SPACING) valid = false;
+            if (playerX !== undefined) {
+                const dx = obs.x - playerX;
+                const dy = obs.y - playerY;
+                if (dx*dx + dy*dy < (obs.r + CONFIG.PLAYER_R + CONFIG.PLAYER_SAFE_DIST)**2) valid = false;
             }
+            if (Math.abs(obs.y + obs.r - groundY) < CONFIG.SPACING) valid = false;
         }
         if (valid) obstacles.push(obs);
     }
@@ -261,231 +224,285 @@ function spawnEnemies(count) {
         let attempts = 0;
         let valid = false;
         let enemy;
-
-        while (!valid && attempts < 1000) {
-            attempts++;
+        while (!valid && attempts++ < 1000) {
             enemy = {
-                x: CONFIG.SPACING + Math.random() * (W - 2*CONFIG.SPACING),
-                y: CONFIG.SPACING + Math.random() * (groundY - 2*CONFIG.SPACING),
+                x: CONFIG.SPACING + Math.random()*(W - 2*CONFIG.SPACING),
+                y: CONFIG.SPACING + Math.random()*(groundY - 2*CONFIG.SPACING),
                 r: CONFIG.ENEMY_R
             };
-
             valid = true;
             for (const obs of obstacles) {
                 const dx = enemy.x - obs.x;
                 const dy = enemy.y - obs.y;
-                if (dx*dx + dy*dy < (obs.r + enemy.r + 20)**2) { valid = false; break; }
+                if (dx*dx + dy*dy < (obs.r + enemy.r + 20)**2) valid = false;
             }
-            if (valid && isPointInCrater(enemy)) valid = false;
+            if (playerX !== undefined) {
+                const dx = enemy.x - playerX;
+                const dy = enemy.y - playerY;
+                if (dx*dx + dy*dy < (enemy.r + CONFIG.PLAYER_R + 30)**2) valid = false;
+            }
+            if (isPointInCrater(enemy)) valid = false;
         }
         if (valid) enemies.push(enemy);
     }
     enemiesEl.textContent = enemies.length;
 }
 
-function resize() {
-    W = canvas.width = canvas.clientWidth;
-    H = canvas.height = canvas.clientHeight;
-    groundY = H * 0.82;
-}
-
-// 绘制基础场景
+// 绘制场景
 function draw() {
     ctx.clearRect(0, 0, W, H);
-
-    // 网格
+    
     ctx.strokeStyle = '#15151f';
     ctx.lineWidth = 1;
-    for (let x = 0; x < W; x += 35) {
-        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
-    }
-    for (let y = 0; y < H; y += 35) {
-        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
-    }
-
-    // 地面
+    for (let x = 0; x < W; x += 35) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+    for (let y = 0; y < H; y += 35) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+    
     ctx.strokeStyle = '#252530';
     ctx.lineWidth = 3;
     ctx.beginPath(); ctx.moveTo(0, groundY); ctx.lineTo(W, groundY); ctx.stroke();
 
-    // 障碍物+凹坑
     obstacles.forEach(obs => {
         ctx.fillStyle = obs.color;
         ctx.beginPath(); ctx.arc(obs.x, obs.y, obs.r, 0, Math.PI*2); ctx.fill();
         craters.forEach(crater => {
             const dx = crater.x - obs.x;
             const dy = crater.y - obs.y;
-            if (dx*dx + dy*dy < obs.r*obs.r + EPSILON) {
+            if (dx*dx + dy*dy < obs.r*obs.r + EPS) {
                 ctx.fillStyle = '#0a0a0f';
                 ctx.beginPath(); ctx.arc(crater.x, crater.y, crater.radius, 0, Math.PI*2); ctx.fill();
             }
         });
     });
 
-    // 炮台
-    ctx.fillStyle = '#58a6ff';
-    ctx.beginPath(); ctx.arc(50, groundY - 10, 15, 0, Math.PI*2); ctx.fill();
+    if (playerX !== undefined) {
+        ctx.fillStyle = '#58a6ff';
+        ctx.beginPath(); ctx.arc(playerX, playerY, CONFIG.PLAYER_R, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = '#8cdcff';
+        ctx.beginPath(); ctx.arc(playerX, playerY, CONFIG.PLAYER_R*0.5, 0, Math.PI*2); ctx.fill();
+    }
 
-    // 敌人
     enemies.forEach(e => {
         ctx.fillStyle = '#f85149';
         ctx.beginPath(); ctx.arc(e.x, e.y, e.r, 0, Math.PI*2); ctx.fill();
+        ctx.strokeStyle = '#8b0000';
+        ctx.lineWidth = CONFIG.ENEMY_BORDER_WIDTH;
+        ctx.stroke();
     });
+
+    for (let i = bloodstains.length-1; i>=0; i--) {
+        const bs = bloodstains[i];
+        bs.life--;
+        if (bs.life <= 0) { bloodstains.splice(i,1); continue; }
+        const alpha = bs.life / CONFIG.BLOOD_LIFETIME;
+        ctx.fillStyle = `rgba(180,0,0,${alpha*0.7})`;
+        ctx.beginPath(); ctx.arc(bs.x, bs.y, bs.radius, 0, Math.PI*2); ctx.fill();
+    }
 }
 
-// 绘制单枚炮弹轨迹
-function drawTrajectory(points) {
-    if (points.length < 2) return;
-    ctx.strokeStyle = 'rgba(88, 166, 255, 0.6)';
-    ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.moveTo(points[0].x, points[0].y);
-    for (let i = 1; i < points.length; i++) ctx.lineTo(points[i].x, points[i].y);
-    ctx.stroke();
+// 粒子效果
+function createImpactEffect(pt, isEnemy=false) {
+    const cnt = CONFIG.PARTICLE_COUNT;
+    const baseHue = isEnemy ? 0 : 30;
+    for (let i=0; i<cnt; i++) {
+        const angle = (i/cnt)*Math.PI*2 + Math.random()*0.5;
+        const speed = isEnemy ? 2+Math.random()*3 : 1.5+Math.random()*2.5;
+        particles.push({
+            x: pt.x + (Math.random()-0.5)*4,
+            y: pt.y + (Math.random()-0.5)*4,
+            vx: Math.cos(angle)*speed,
+            vy: Math.sin(angle)*speed,
+            life: 1,
+            decay: 0.02+Math.random()*0.02,
+            color: `hsl(${baseHue+Math.random()*30},100%,${60+Math.random()*30}%)`,
+            size: isEnemy ? 2+Math.random()*2 : 1.5+Math.random()*2,
+            gravity: isEnemy ? 0.05 : 0,
+            type: isEnemy ? 'blood' : 'spark'
+        });
+    }
+    for (let i=0; i<5; i++) {
+        particles.push({
+            x: pt.x, y: pt.y,
+            vx: (Math.random()-0.5)*4,
+            vy: (Math.random()-0.5)*4,
+            life: 1,
+            decay: 0.03,
+            color: isEnemy ? '#8b0000' : '#ff8800',
+            size: 1+Math.random()*2,
+            gravity: 0.1,
+            type: 'debris'
+        });
+    }
 }
 
-// 发射炮弹（无锁，支持连发）
-function fire() {
-    const fn = parseFunction(document.getElementById('func').value);
-    if (!fn) return;
-
-    totalShots++;
-    accuracyEl.textContent = `${totalShots ? Math.round(hits/totalShots*100) : 0}%`;
-
-    // 创建新炮弹实例
-    projectiles.push({
-        fn: fn,
-        x: 50,
-        prevPos: { x: 50, y: groundY - 10 },
-        currentPos: { x: 50, y: groundY - 10 },
-        points: [{ x: 50, y: groundY - 10 }],
-        active: true
-    });
+function updateAndDrawParticles() {
+    for (let i=particles.length-1; i>=0; i--) {
+        const p = particles[i];
+        p.x += p.vx; p.y += p.vy;
+        if (p.gravity) p.vy += p.gravity;
+        p.life -= p.decay;
+        if (p.life <= 0) { particles.splice(i,1); continue; }
+        
+        ctx.globalAlpha = p.life;
+        ctx.fillStyle = p.color;
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.size*p.life, 0, Math.PI*2); ctx.fill();
+        
+        if (p.type === 'debris' && p.life > 0.5) {
+            ctx.strokeStyle = p.color;
+            ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.moveTo(p.x-p.vx*2, p.y-p.vy*2); ctx.lineTo(p.x, p.y); ctx.stroke();
+        }
+    }
+    ctx.globalAlpha = 1;
+    particlesEl.textContent = particles.length;
 }
 
-// 更新单枚炮弹状态
+// 炮弹更新（超界贴边+5px细分防穿墙）
 function updateProjectile(proj) {
     if (!proj.active) return;
 
-    // 高速移动+细步长采样
-    proj.x += CONFIG.STEP * CONFIG.SPEED_SCALE;
-    const mathX = (proj.x - 50) / CONFIG.SPEED_SCALE;
+    proj.x += proj.dir * CONFIG.STEP * CONFIG.SPEED_SCALE;
+    const mathX = (proj.x - playerX) / CONFIG.SPEED_SCALE;
     const mathY = proj.fn(mathX);
 
-    // 越界失效
-    if (!isFinite(mathY) || proj.x > W || proj.prevPos.y > H || proj.prevPos.y < 0) {
+    if (!isFinite(mathY) || proj.x < -50 || proj.x > W+50) {
         proj.active = false;
         return;
     }
 
-    proj.currentPos = { x: proj.x, y: groundY - mathY * CONFIG.SPEED_SCALE };
-    proj.points.push(proj.currentPos);
+    const realY = playerY - mathY * CONFIG.SPEED_SCALE;
+    const renderY = Math.max(0, Math.min(H, realY));
+    proj.points.push({ x: proj.x, y: renderY });
 
-    // 障碍物碰撞检测
-    const collision = checkSegmentCollision(proj.prevPos, proj.currentPos);
-    if (collision.hit) {
-        craters.push({
-            x: collision.point.x,
-            y: collision.point.y,
-            radius: CONFIG.CRATER_RADIUS + Math.random() * 2
-        });
-        createImpactEffect(collision.point);
-        proj.active = false;
-        return;
-    }
+    const dx = proj.x - proj.prevPos.x;
+    const realDy = realY - proj.prevRealY;
+    const dist = Math.sqrt(dx*dx + realDy*realDy);
 
-    // 敌人碰撞检测
-    for (let i = enemies.length - 1; i >= 0; i--) {
-        const enemy = enemies[i];
-        const enemyCollision = getLineCircleIntersections(proj.prevPos, proj.currentPos, enemy);
-        if (enemyCollision.length > 0) {
-            enemies.splice(i, 1);
-            hits++;
-            score += 10;
-            scoreEl.textContent = score;
-            enemiesEl.textContent = enemies.length;
-            accuracyEl.textContent = `${Math.round(hits/totalShots*100)}%`;
+    if (dist > EPS) {
+        const unitX = dx/dist;
+        const unitY = realDy/dist;
+        let walked = 0;
 
-            if (enemies.length === 0) {
-                setTimeout(() => spawnEnemies(5 + Math.floor(score/40)), 800);
+        while (walked < dist - EPS) {
+            const step = Math.min(CONFIG.FIXED_SUB_STEP, dist - walked);
+            walked += step;
+            const subX = proj.prevPos.x + unitX*walked;
+            const subRealY = proj.prevRealY + unitY*walked;
+            const subRenderY = Math.max(0, Math.min(H, subRealY));
+
+            const startIn = proj.prevRealY >= 0 && proj.prevRealY <= H;
+            const endIn = subRealY >= 0 && subRealY <= H;
+
+            if (startIn && endIn) {
+                const segStart = { x: proj.prevPos.x, y: proj.prevRealY };
+                const segEnd = { x: subX, y: subRealY };
+
+                const col = checkSegmentCollision(segStart, segEnd);
+                if (col.hit) {
+                    craters.push({ x: col.point.x, y: col.point.y, radius: CONFIG.CRATER_RADIUS + Math.random()*2 });
+                    createImpactEffect(col.point, false);
+                    proj.active = false;
+                    proj.currentPos = { x: subX, y: subRenderY };
+                    return;
+                }
+
+                for (let j=enemies.length-1; j>=0; j--) {
+                    const ene = enemies[j];
+                    const eneCol = getLineCircleIntersections(segStart, segEnd, ene);
+                    if (eneCol.length > 0) {
+                        bloodstains.push({ x: ene.x, y: ene.y, radius: ene.r*1.5, life: CONFIG.BLOOD_LIFETIME });
+                        enemies.splice(j,1);
+                        hits++; score += 10;
+                        scoreEl.textContent = score;
+                        enemiesEl.textContent = enemies.length;
+                        accuracyEl.textContent = `${Math.round(hits/totalShots*100)}%`;
+                        if (enemies.length === 0) spawnEnemies(5 + Math.floor(score/40));
+                        createImpactEffect(ene, true);
+                        proj.active = false;
+                        proj.currentPos = { x: subX, y: subRenderY };
+                        return;
+                    }
+                }
             }
-            proj.active = false;
-            return;
+
+            proj.prevPos = { x: subX, y: subRenderY };
+            proj.prevRealY = subRealY;
         }
     }
 
+    proj.currentPos = { x: proj.x, y: renderY };
     proj.prevPos = proj.currentPos;
+    proj.prevRealY = realY;
 }
 
-// 碰撞粒子特效
-function createImpactEffect(point) {
-    const particles = [];
-    for (let i = 0; i < 12; i++) {
-        const angle = (i/12) * Math.PI*2;
-        particles.push({
-            x: point.x, y: point.y,
-            vx: Math.cos(angle) * (2 + Math.random()),
-            vy: Math.sin(angle) * (2 + Math.random()),
-            life: 1,
-            color: `hsl(${30 + Math.random()*30}, 100%, 60%)`
-        });
-    }
-
-    function animateParticles() {
-        if (particles.length === 0) return;
-        draw(); // 叠加在主场景上
-        for (let i = particles.length - 1; i >= 0; i--) {
-            const p = particles[i];
-            p.x += p.vx;
-            p.y += p.vy;
-            p.life -= 0.035;
-            if (p.life <= 0) { particles.splice(i, 1); continue; }
-            ctx.globalAlpha = p.life;
-            ctx.fillStyle = p.color;
-            ctx.beginPath(); ctx.arc(p.x, p.y, 2, 0, Math.PI*2); ctx.fill();
-            ctx.globalAlpha = 1;
-        }
-        if (particles.length > 0) requestAnimationFrame(animateParticles);
-    }
-    animateParticles();
-}
-
-// 全局游戏循环（驱动所有炮弹）
+// 游戏主循环
 function gameLoop() {
     draw();
-
-    // 更新并绘制所有活跃炮弹
-    for (let i = projectiles.length - 1; i >= 0; i--) {
+    
+    for (let i=projectiles.length-1; i>=0; i--) {
         const proj = projectiles[i];
         updateProjectile(proj);
         if (proj.active) {
-            drawTrajectory(proj.points);
-            // 绘制炮弹
-            ctx.fillStyle = '#ffa657';
-            ctx.shadowColor = '#ffa657';
-            ctx.shadowBlur = 12;
-            ctx.beginPath(); ctx.arc(proj.currentPos.x, proj.currentPos.y, 4, 0, Math.PI*2); ctx.fill();
+            ctx.strokeStyle = proj.dir === 1 ? 'rgba(88,166,255,0.6)' : 'rgba(88,166,255,0.3)';
+            ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(proj.points[0].x, proj.points[0].y);
+            for (let j=1; j<proj.points.length; j++) ctx.lineTo(proj.points[j].x, proj.points[j].y);
+            ctx.stroke();
+            
+            ctx.fillStyle = '#ffaa33';
+            ctx.shadowColor = '#ffaa33';
+            ctx.shadowBlur = 20;
+            ctx.beginPath(); ctx.arc(proj.currentPos.x, proj.currentPos.y, 6, 0, Math.PI*2); ctx.fill();
             ctx.shadowBlur = 0;
         } else {
-            projectiles.splice(i, 1); // 移除失效炮弹
+            projectiles.splice(i,1);
         }
     }
-
-    projectilesEl.textContent = projectiles.length; // 显示当前弹幕数量
+    
+    updateAndDrawParticles();
+    projectilesEl.textContent = projectiles.length;
     requestAnimationFrame(gameLoop);
+}
+
+// 发射逻辑（双发左右同时）
+function fire() {
+    const fn = parseFunction(document.getElementById('func').value);
+    if (!fn || playerX === undefined) return;
+    
+    totalShots++;
+    accuracyEl.textContent = `${totalShots ? Math.round(hits/totalShots*100) : 0}%`;
+
+    const initMathY = fn(0);
+    const initRealY = playerY - initMathY * CONFIG.SPEED_SCALE;
+    const initRenderY = Math.max(0, Math.min(H, initRealY));
+
+    projectiles.push({
+        fn, x: playerX, dir: 1,
+        prevPos: { x: playerX, y: initRenderY }, prevRealY: initRealY,
+        currentPos: { x: playerX, y: initRenderY },
+        points: [{ x: playerX, y: initRenderY }], active: true
+    });
+    projectiles.push({
+        fn, x: playerX, dir: -1,
+        prevPos: { x: playerX, y: initRenderY }, prevRealY: initRealY,
+        currentPos: { x: playerX, y: initRenderY },
+        points: [{ x: playerX, y: initRenderY }], active: true
+    });
 }
 
 // 重置游戏
 function resetGame() {
-    score = 0;
-    totalShots = 0;
-    hits = 0;
-    projectiles = []; // 清空所有炮弹
-    craters = [];
+    score = 0; totalShots = 0; hits = 0;
+    projectiles = []; craters = []; bloodstains = []; particles = [];
+    obstacles = []; enemies = [];
+    
+    generateObstacles();
+    spawnPlayer();
+    spawnEnemies(5);
+    
     scoreEl.textContent = '0';
     accuracyEl.textContent = '0%';
     projectilesEl.textContent = '0';
-    generateObstacles();
-    spawnEnemies(5);
+    particlesEl.textContent = '0';
     draw();
 }
 
@@ -493,7 +510,7 @@ function resetGame() {
 window.onload = () => {
     resize();
     resetGame();
-    gameLoop(); // 启动全局循环
+    gameLoop();
 };
 window.onresize = () => {
     resize();
@@ -507,19 +524,49 @@ document.addEventListener('keydown', e => {
 // 实时轨迹预览
 funcInput.addEventListener('input', () => {
     const fn = parseFunction(funcInput.value);
-    if (fn) {
-        const previewPoints = [];
-        let x = 50;
-        for (let i = 0; i < 300; i++) {
-            const mathX = (x - 50) / CONFIG.SPEED_SCALE;
-            const mathY = fn(mathX);
-            if (!isFinite(mathY) || x > W) break;
-            previewPoints.push({ x, y: groundY - mathY * CONFIG.SPEED_SCALE });
-            x += CONFIG.STEP * CONFIG.SPEED_SCALE;
-        }
-        draw();
-        drawTrajectory(previewPoints);
+    if (!fn || playerX === undefined) return;
+    
+    draw();
+    const ptsR = [], ptsL = [];
+    
+    let xR = playerX;
+    for (let i=0; i<400; i++) {
+        const mX = (xR - playerX)/CONFIG.SPEED_SCALE;
+        const mY = fn(mX);
+        if (!isFinite(mY) || xR > W+50) break;
+        const rY = playerY - mY*CONFIG.SPEED_SCALE;
+        const renY = Math.max(0, Math.min(H, rY));
+        ptsR.push({ x: xR, y: renY });
+        xR += CONFIG.STEP * CONFIG.SPEED_SCALE;
     }
+    
+    let xL = playerX;
+    for (let i=0; i<400; i++) {
+        const mX = (xL - playerX)/CONFIG.SPEED_SCALE;
+        const mY = fn(mX);
+        if (!isFinite(mY) || xL < -50) break;
+        const rY = playerY - mY*CONFIG.SPEED_SCALE;
+        const renY = Math.max(0, Math.min(H, rY));
+        ptsL.push({ x: xL, y: renY });
+        xL -= CONFIG.STEP * CONFIG.SPEED_SCALE;
+    }
+    
+    ctx.strokeStyle = 'rgba(88,166,255,0.6)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    if (ptsR.length) {
+        ctx.moveTo(ptsR[0].x, ptsR[0].y);
+        for (let i=1; i<ptsR.length; i++) ctx.lineTo(ptsR[i].x, ptsR[i].y);
+    }
+    ctx.stroke();
+    
+    ctx.strokeStyle = 'rgba(88,166,255,0.3)';
+    ctx.beginPath();
+    if (ptsL.length) {
+        ctx.moveTo(ptsL[0].x, ptsL[0].y);
+        for (let i=1; i<ptsL.length; i++) ctx.lineTo(ptsL[i].x, ptsL[i].y);
+    }
+    ctx.stroke();
 });
 </script>
 </body>
