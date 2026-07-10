@@ -1,10 +1,12 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- saved from url=(0031)https://abc.woen.pics/graphwar/ -->
+<html lang="zh-CN"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    
+    <!-- 👇 仅修改：新增viewport-fit=cover适配手机全面屏 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Graphwar网页版</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.8.0/math.min.js"></script>
+    <!-- 👇 仅修改：使用公共CDN加载math.js，避免本地文件依赖 -->
+    <script src="https://cdn.jsdelivr.net/npm/mathjs@11.8.0/dist/math.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { background: #0a0a0f; color: #e0e0e0; font-family: 'Consolas', monospace; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
@@ -33,16 +35,16 @@
         <button id="reset" onclick="resetGame()">重置 (R)</button>
         <button id="cheat" onclick="activateCheat()">！？挂？！</button>
         <div class="stats">
-            <div>得分: <span id="score">0</span></div>
-            <div>敌人: <span id="enemies">5</span></div>
+            <div>得分: <span id="score">10</span></div>
+            <div>敌人: <span id="enemies">4</span></div>
             <div>障碍: <span id="obstacles">28</span></div>
-            <div>命中率: <span id="accuracy">0%</span></div>
+            <div>命中率: <span id="accuracy">3%</span></div>
             <div>弹幕: <span id="projectiles">0</span></div>
             <div>粒子: <span id="particles">0</span></div>
         </div>
     </div>
     <div id="error"></div>
-    <canvas id="game"></canvas>
+    <canvas id="game" width="2077" height="988"></canvas>
 
 <script>
 const canvas = document.getElementById('game');
@@ -68,7 +70,7 @@ const CONFIG = {
     SPACING: 50,
     BLOOD_LIFETIME: 120,
     PARTICLE_COUNT: 25,
-    FIXED_SUB_STEP: 5,
+    FIXED_SUB_STEP: 1,
     PLAYER_R: 15,
     PLAYER_SAFE_DIST: 50
 };
@@ -238,11 +240,21 @@ function checkSegmentCollision(p1, p2) {
 }
 
 // ==================== 初始化逻辑 ====================
+// 👇 仅修改：适配手机屏幕高度/DPR，解决拉伸问题
 function resize() {
-    W = canvas.width = canvas.clientWidth;
-    H = canvas.height = canvas.clientHeight;
+    const dpr = window.devicePixelRatio || 1;
+    const rect = canvas.getBoundingClientRect();
+    // 设置物理像素尺寸，解决高清屏模糊和拉伸
+    canvas.width = rect.width * dpr;
+    canvas.height = rect.height * dpr;
+    // 缩放绘图上下文，让逻辑坐标和CSS显示尺寸对齐
+    ctx.scale(dpr, dpr);
+    // 逻辑尺寸（游戏内计算用，和CSS显示尺寸一致）
+    W = rect.width;
+    H = rect.height;
     groundY = H * 0.82;
 }
+// 👆 修改结束
 
 function spawnPlayer() {
     let attempts = 0;
@@ -393,7 +405,7 @@ function createImpactEffect(pt, isEnemy=false) {
             vy: Math.sin(angle)*speed,
             life: 1,
             decay: 0.02+Math.random()*0.02,
-            color: `hsl(${baseHue+Math.random()*30},100%,${60+Math.random()*30}%)`,
+            color: `hsl(${baseHue+Math.random()*30},100%,${Math.random()*30+60}%)`,
             size: isEnemy ? 2+Math.random()*2 : 1.5+Math.random()*2,
             gravity: isEnemy ? 0.05 : 0,
             type: isEnemy ? 'blood' : 'spark'
@@ -665,5 +677,7 @@ funcInput.addEventListener('input', () => {
     ctx.stroke();
 });
 </script>
-</body>
-</html>
+<script defer="" src="./Graphwar网页版_files/v4513226cdae34746b4dedf0b4dfa099e1781791509496" integrity="sha512-ZE9pZaUXND66v380QUtch/5sE9tPFh2zg45pR2PB0CVkCtOREv2AJKkSidISWkysEuQ0EH8faUU5du78bx87UQ==" data-cf-beacon="{&quot;version&quot;:&quot;2024.11.0&quot;,&quot;token&quot;:&quot;a8e6b75f94eb4958b0e0caa4c8857e1b&quot;,&quot;r&quot;:1,&quot;server_timing&quot;:{&quot;name&quot;:{&quot;cfCacheStatus&quot;:true,&quot;cfEdge&quot;:true,&quot;cfExtPri&quot;:true,&quot;cfL4&quot;:true,&quot;cfOrigin&quot;:true,&quot;cfSpeedBrain&quot;:true},&quot;location_startswith&quot;:null}}" crossorigin="anonymous"></script>
+
+
+</body></html>
