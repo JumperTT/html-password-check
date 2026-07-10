@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GraphWar网页版</title>
+    <title>Graphwar网页版</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.8.0/math.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -11,10 +11,14 @@
         .ui { padding: 12px; background: #121218; border-bottom: 1px solid #252530; display: flex; gap: 15px; align-items: center; flex-wrap: wrap; }
         #func { flex: 1; padding: 10px; background: #1a1a25; color: #58a6ff; border: 1px solid #303040; border-radius: 6px; font-size: 16px; min-width: 260px; }
         #func:focus { outline: none; border-color: #58a6ff; }
-        button { padding: 10px 22px; background: #238636; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; transition: all 0.2s; }
-        button:hover { background: #2ea043; transform: translateY(-1px); }
+        button { padding: 10px 22px; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; transition: all 0.2s; }
+        button:hover { transform: translateY(-1px); }
+        button#fire { background: #238636; }
+        button#fire:hover { background: #2ea043; }
         button#reset { background: #da3633; }
         button#reset:hover { background: #f85149; }
+        button#cheat { background: #9c27b0; }
+        button#cheat:hover { background: #ba68c8; }
         #error { color: #f85149; padding: 5px 10px; min-height: 24px; width: 100%; font-size: 13px; }
         canvas { flex: 1; background: #0a0a0f; display: block; }
         .stats { display: flex; gap: 18px; font-size: 14px; padding-left: 10px; }
@@ -24,9 +28,10 @@
 <body>
     <div class="ui">
         <label style="color: #8b949e;">y =</label>
-        <input id="func" value="1/x + sin(x)*10" placeholder="试试 1/x 或 pow(x,-1) + sinx">
-        <button onclick="fire()">发射 (空格)</button>
+        <input id="func" value="sin(x)*10" placeholder="点击【！？挂？！】自动瞄准存活敌人">
+        <button id="fire" onclick="fire()">发射 (空格)</button>
         <button id="reset" onclick="resetGame()">重置 (R)</button>
+        <button id="cheat" onclick="activateCheat()">！？挂？！</button>
         <div class="stats">
             <div>得分: <span id="score">0</span></div>
             <div>敌人: <span id="enemies">5</span></div>
@@ -43,6 +48,7 @@
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
 const errorDiv = document.getElementById('error');
+const funcInput = document.getElementById('func');
 const scoreEl = document.getElementById('score');
 const enemiesEl = document.getElementById('enemies');
 const accuracyEl = document.getElementById('accuracy');
@@ -62,7 +68,7 @@ const CONFIG = {
     SPACING: 50,
     BLOOD_LIFETIME: 120,
     PARTICLE_COUNT: 25,
-    FIXED_SUB_STEP: 3,
+    FIXED_SUB_STEP: 5,
     PLAYER_R: 15,
     PLAYER_SAFE_DIST: 50
 };
@@ -79,7 +85,81 @@ let score = 0;
 let totalShots = 0;
 let hits = 0;
 
-// 修复除零问题的函数解析器
+// ==================== 纯数学折线瞄准（优先右侧，无则左侧，彩蛋提示）====================
+function activateCheat() {
+    // 彩蛋：敌人全灭了还点按钮
+    if (enemies.length === 0) {
+        errorDiv.textContent = "你还想怎样？！";
+        errorDiv.style.color = "#f85149";
+        setTimeout(() => { errorDiv.textContent = ""; }, 3000);
+        return;
+    }
+
+    // 1. 分离左右侧存活敌人
+    const rightTargets = [];
+    const leftTargets = [];
+    enemies.forEach(enemy => {
+        const relX = (enemy.x - playerX) / CONFIG.SPEED_SCALE;
+        const relY = (playerY - enemy.y) / CONFIG.SPEED_SCALE;
+        if (relX > EPS) {
+            rightTargets.push({ x: relX, y: relY });
+        } else if (relX < -EPS) {
+            leftTargets.push({ x: relX, y: relY });
+        }
+    });
+
+    // 2. 优先选右侧，无右侧则选左侧，对应不同提示
+    let targetPoints = [];
+    let cheatMsg = "";
+    if (rightTargets.length > 0) {
+        targetPoints = rightTargets.sort((a, b) => a.x - b.x);
+        cheatMsg = "开挂是不对的！！！！！（怒";
+    } else if (leftTargets.length > 0) {
+        targetPoints = leftTargets.sort((a, b) => a.x - b.x);
+        cheatMsg = "你怎么还在开挂，啊？！";
+    }
+
+    // 加入炮台作为起点，过滤重复x坐标
+    targetPoints.unshift({ x: 0, y: 0 });
+    const uniquePoints = [targetPoints[0]];
+    for (let i = 1; i < targetPoints.length; i++) {
+        if (Math.abs(targetPoints[i].x - uniquePoints[uniquePoints.length - 1].x) > EPS) {
+            uniquePoints.push(targetPoints[i]);
+        }
+    }
+
+    if (uniquePoints.length < 2) {
+        errorDiv.textContent = "敌人位置重叠，开挂失败！";
+        errorDiv.style.color = "#f85149";
+        setTimeout(() => { errorDiv.textContent = ""; }, 3000);
+        return;
+    }
+
+    // 3. 计算斜率和跳变值，生成纯数学折线函数
+    const slopes = [];
+    for (let i = 0; i < uniquePoints.length - 1; i++) {
+        const p1 = uniquePoints[i];
+        const p2 = uniquePoints[i + 1];
+        slopes.push((p2.y - p1.y) / (p2.x - p1.x));
+    }
+
+    let funcStr = `${slopes[0].toFixed(6)}*x`;
+    for (let i = 1; i < slopes.length; i++) {
+        const jump = slopes[i] - slopes[i - 1];
+        const breakpoint = uniquePoints[i].x;
+        funcStr += ` + ${jump.toFixed(6)}*max(0, x - ${breakpoint.toFixed(6)})`;
+    }
+
+    // 4. 更新输入框并显示对应提示
+    funcInput.value = funcStr;
+    funcInput.dispatchEvent(new Event('input'));
+
+    errorDiv.textContent = cheatMsg;
+    errorDiv.style.color = "#4caf50";
+    setTimeout(() => { errorDiv.textContent = ""; errorDiv.style.color = "#f85149"; }, 3000);
+}
+
+// ==================== 函数解析（含除零保护）====================
 function parseFunction(expr) {
     errorDiv.textContent = '';
     try {
@@ -94,13 +174,10 @@ function parseFunction(expr) {
         return (x) => {
             try { 
                 const result = node.evaluate({ x });
-                // 关键修复：处理除零、无穷大和非数字
-                if (!isFinite(result) || isNaN(result)) {
-                    return 0; // 除零时返回0
-                }
+                if (!isFinite(result) || isNaN(result)) return 0;
                 return result;
             } catch { 
-                return 0; // 任何错误都返回0
+                return 0;
             }
         };
     } catch (e) {
@@ -109,7 +186,7 @@ function parseFunction(expr) {
     }
 }
 
-// 线段与圆求交
+// ==================== 碰撞检测核心 ====================
 function getLineCircleIntersections(p1, p2, circle) {
     const { x: cx, y: cy, r } = circle;
     const dx = p2.x - p1.x;
@@ -141,7 +218,6 @@ function getLineCircleIntersections(p1, p2, circle) {
     return res.sort((a,b) => a.t - b.t);
 }
 
-// 点是否在凹坑内
 function isPointInCrater(pt) {
     for (const c of craters) {
         const dx = pt.x - c.x;
@@ -151,7 +227,6 @@ function isPointInCrater(pt) {
     return false;
 }
 
-// 线段与障碍物碰撞检测
 function checkSegmentCollision(p1, p2) {
     for (const obs of obstacles) {
         const hits = getLineCircleIntersections(p1, p2, obs);
@@ -162,14 +237,13 @@ function checkSegmentCollision(p1, p2) {
     return { hit: false };
 }
 
-// 窗口适配
+// ==================== 初始化逻辑 ====================
 function resize() {
     W = canvas.width = canvas.clientWidth;
     H = canvas.height = canvas.clientHeight;
     groundY = H * 0.82;
 }
 
-// 随机生成炮台
 function spawnPlayer() {
     let attempts = 0;
     while (attempts++ < 1000) {
@@ -192,7 +266,6 @@ function spawnPlayer() {
     playerX = W/2; playerY = H/2;
 }
 
-// 生成障碍物
 function generateObstacles() {
     obstacles = [];
     for (let i = 0; i < CONFIG.OBSTACLE_COUNT; i++) {
@@ -225,7 +298,6 @@ function generateObstacles() {
     document.getElementById('obstacles').textContent = obstacles.length;
 }
 
-// 生成敌人
 function spawnEnemies(count) {
     enemies = [];
     for (let i = 0; i < count; i++) {
@@ -256,7 +328,7 @@ function spawnEnemies(count) {
     enemiesEl.textContent = enemies.length;
 }
 
-// 绘制场景
+// ==================== 绘制逻辑 ====================
 function draw() {
     ctx.clearRect(0, 0, W, H);
     
@@ -307,7 +379,7 @@ function draw() {
     }
 }
 
-// 粒子效果
+// ==================== 粒子系统 ====================
 function createImpactEffect(pt, isEnemy=false) {
     const cnt = CONFIG.PARTICLE_COUNT;
     const baseHue = isEnemy ? 0 : 30;
@@ -364,7 +436,7 @@ function updateAndDrawParticles() {
     particlesEl.textContent = particles.length;
 }
 
-// 炮弹更新
+// ==================== 炮弹更新 ====================
 function updateProjectile(proj) {
     if (!proj.active) return;
 
@@ -372,9 +444,7 @@ function updateProjectile(proj) {
     const mathX = (proj.x - playerX) / CONFIG.SPEED_SCALE;
     const mathY = proj.fn(mathX);
 
-    // 关键修复：处理除零导致的无穷大或非数字
     if (!isFinite(mathY) || isNaN(mathY)) {
-        // 除零时，将这一帧的结果归0
         const safeY = 0;
         const realY = playerY - safeY * CONFIG.SPEED_SCALE;
         const renderY = Math.max(0, Math.min(H, realY));
@@ -455,7 +525,7 @@ function updateProjectile(proj) {
     proj.prevRealY = realY;
 }
 
-// 游戏主循环
+// ==================== 游戏循环 ====================
 function gameLoop() {
     draw();
     
@@ -484,7 +554,7 @@ function gameLoop() {
     requestAnimationFrame(gameLoop);
 }
 
-// 发射逻辑
+// ==================== 交互逻辑 ====================
 function fire() {
     const fn = parseFunction(document.getElementById('func').value);
     if (!fn || playerX === undefined) return;
@@ -510,7 +580,6 @@ function fire() {
     });
 }
 
-// 重置游戏
 function resetGame() {
     score = 0; totalShots = 0; hits = 0;
     projectiles = []; craters = []; bloodstains = []; particles = [];
@@ -527,7 +596,7 @@ function resetGame() {
     draw();
 }
 
-// 初始化
+// ==================== 初始化 ====================
 window.onload = () => {
     resize();
     resetGame();
