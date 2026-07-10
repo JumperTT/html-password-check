@@ -1,12 +1,12 @@
 <!DOCTYPE html>
 <!-- saved from url=(0031)https://abc.woen.pics/graphwar/ -->
-<html lang="zh-CN"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-    
-    <!-- 👇 仅修改：新增viewport-fit=cover适配手机全面屏 -->
+<html lang="zh-CN">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Graphwar网页版</title>
-    <!-- 👇 仅修改：使用公共CDN加载math.js，避免本地文件依赖 -->
-    <script src="https://cdn.jsdelivr.net/npm/mathjs@11.8.0/dist/math.min.js"></script>
+    <!-- 你最开始用的CDN，原封不动换回 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.8.0/math.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { background: #0a0a0f; color: #e0e0e0; font-family: 'Consolas', monospace; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
@@ -44,7 +44,8 @@
         </div>
     </div>
     <div id="error"></div>
-    <canvas id="game" width="2077" height="988"></canvas>
+    <!-- 移除原硬编码宽高，由JS动态适配屏幕 -->
+    <canvas id="game"></canvas>
 
 <script>
 const canvas = document.getElementById('game');
@@ -89,7 +90,6 @@ let hits = 0;
 
 // ==================== 纯数学折线瞄准（优先右侧，无则左侧，彩蛋提示）====================
 function activateCheat() {
-    // 彩蛋：敌人全灭了还点按钮
     if (enemies.length === 0) {
         errorDiv.textContent = "你还想怎样？！";
         errorDiv.style.color = "#f85149";
@@ -97,7 +97,6 @@ function activateCheat() {
         return;
     }
 
-    // 1. 分离左右侧存活敌人
     const rightTargets = [];
     const leftTargets = [];
     enemies.forEach(enemy => {
@@ -110,7 +109,6 @@ function activateCheat() {
         }
     });
 
-    // 2. 优先选右侧，无右侧则选左侧，对应不同提示
     let targetPoints = [];
     let cheatMsg = "";
     if (rightTargets.length > 0) {
@@ -121,7 +119,6 @@ function activateCheat() {
         cheatMsg = "你怎么还在开挂，啊？！";
     }
 
-    // 加入炮台作为起点，过滤重复x坐标
     targetPoints.unshift({ x: 0, y: 0 });
     const uniquePoints = [targetPoints[0]];
     for (let i = 1; i < targetPoints.length; i++) {
@@ -137,7 +134,6 @@ function activateCheat() {
         return;
     }
 
-    // 3. 计算斜率和跳变值，生成纯数学折线函数
     const slopes = [];
     for (let i = 0; i < uniquePoints.length - 1; i++) {
         const p1 = uniquePoints[i];
@@ -152,7 +148,6 @@ function activateCheat() {
         funcStr += ` + ${jump.toFixed(6)}*max(0, x - ${breakpoint.toFixed(6)})`;
     }
 
-    // 4. 更新输入框并显示对应提示
     funcInput.value = funcStr;
     funcInput.dispatchEvent(new Event('input'));
 
@@ -240,21 +235,20 @@ function checkSegmentCollision(p1, p2) {
 }
 
 // ==================== 初始化逻辑 ====================
-// 👇 仅修改：适配手机屏幕高度/DPR，解决拉伸问题
+// 重写resize适配手机屏幕，解决拉伸/高度问题，其余逻辑不变
 function resize() {
     const dpr = window.devicePixelRatio || 1;
     const rect = canvas.getBoundingClientRect();
-    // 设置物理像素尺寸，解决高清屏模糊和拉伸
+    // 设置物理像素尺寸，解决模糊和拉伸
     canvas.width = rect.width * dpr;
     canvas.height = rect.height * dpr;
-    // 缩放绘图上下文，让逻辑坐标和CSS显示尺寸对齐
+    // 缩放上下文匹配CSS显示尺寸
     ctx.scale(dpr, dpr);
-    // 逻辑尺寸（游戏内计算用，和CSS显示尺寸一致）
+    // 逻辑尺寸（游戏计算用，和CSS尺寸一致）
     W = rect.width;
     H = rect.height;
     groundY = H * 0.82;
 }
-// 👆 修改结束
 
 function spawnPlayer() {
     let attempts = 0;
@@ -405,7 +399,7 @@ function createImpactEffect(pt, isEnemy=false) {
             vy: Math.sin(angle)*speed,
             life: 1,
             decay: 0.02+Math.random()*0.02,
-            color: `hsl(${baseHue+Math.random()*30},100%,${Math.random()*30+60}%)`,
+            color: `hsl(${baseHue+Math.random()*30},100%,${60+Math.random()*30}%)`,
             size: isEnemy ? 2+Math.random()*2 : 1.5+Math.random()*2,
             gravity: isEnemy ? 0.05 : 0,
             type: isEnemy ? 'blood' : 'spark'
@@ -677,7 +671,5 @@ funcInput.addEventListener('input', () => {
     ctx.stroke();
 });
 </script>
-<script defer="" src="./Graphwar网页版_files/v4513226cdae34746b4dedf0b4dfa099e1781791509496" integrity="sha512-ZE9pZaUXND66v380QUtch/5sE9tPFh2zg45pR2PB0CVkCtOREv2AJKkSidISWkysEuQ0EH8faUU5du78bx87UQ==" data-cf-beacon="{&quot;version&quot;:&quot;2024.11.0&quot;,&quot;token&quot;:&quot;a8e6b75f94eb4958b0e0caa4c8857e1b&quot;,&quot;r&quot;:1,&quot;server_timing&quot;:{&quot;name&quot;:{&quot;cfCacheStatus&quot;:true,&quot;cfEdge&quot;:true,&quot;cfExtPri&quot;:true,&quot;cfL4&quot;:true,&quot;cfOrigin&quot;:true,&quot;cfSpeedBrain&quot;:true},&quot;location_startswith&quot;:null}}" crossorigin="anonymous"></script>
-
-
-</body></html>
+</body>
+</html>
