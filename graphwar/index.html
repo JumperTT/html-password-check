@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GraphWar</title>
+    <title>GraphWar网页版</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.8.0/math.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -24,7 +24,7 @@
 <body>
     <div class="ui">
         <label style="color: #8b949e;">y =</label>
-        <input id="func" value="-1*x + sin(x)*20" placeholder="试试 -1x + 2sinx*10 或 x^2 + √x">
+        <input id="func" value="1/x + sin(x)*10" placeholder="试试 1/x 或 pow(x,-1) + sinx">
         <button onclick="fire()">发射 (空格)</button>
         <button id="reset" onclick="resetGame()">重置 (R)</button>
         <div class="stats">
@@ -79,7 +79,7 @@ let score = 0;
 let totalShots = 0;
 let hits = 0;
 
-// 隐式乘法解析（math.js驱动，支持-1x/2sinx/√x等写法）
+// 修复除零问题的函数解析器
 function parseFunction(expr) {
     errorDiv.textContent = '';
     try {
@@ -92,8 +92,16 @@ function parseFunction(expr) {
         
         const node = math.compile(expr);
         return (x) => {
-            try { return node.evaluate({ x }); }
-            catch { return NaN; }
+            try { 
+                const result = node.evaluate({ x });
+                // 关键修复：处理除零、无穷大和非数字
+                if (!isFinite(result) || isNaN(result)) {
+                    return 0; // 除零时返回0
+                }
+                return result;
+            } catch { 
+                return 0; // 任何错误都返回0
+            }
         };
     } catch (e) {
         errorDiv.textContent = `函数错误：${e.message}`;
@@ -161,7 +169,7 @@ function resize() {
     groundY = H * 0.82;
 }
 
-// 随机生成炮台（避开障碍物和敌人）
+// 随机生成炮台
 function spawnPlayer() {
     let attempts = 0;
     while (attempts++ < 1000) {
@@ -356,7 +364,7 @@ function updateAndDrawParticles() {
     particlesEl.textContent = particles.length;
 }
 
-// 炮弹更新（超界贴边+5px细分防穿墙）
+// 炮弹更新
 function updateProjectile(proj) {
     if (!proj.active) return;
 
@@ -364,7 +372,20 @@ function updateProjectile(proj) {
     const mathX = (proj.x - playerX) / CONFIG.SPEED_SCALE;
     const mathY = proj.fn(mathX);
 
-    if (!isFinite(mathY) || proj.x < -50 || proj.x > W+50) {
+    // 关键修复：处理除零导致的无穷大或非数字
+    if (!isFinite(mathY) || isNaN(mathY)) {
+        // 除零时，将这一帧的结果归0
+        const safeY = 0;
+        const realY = playerY - safeY * CONFIG.SPEED_SCALE;
+        const renderY = Math.max(0, Math.min(H, realY));
+        proj.points.push({ x: proj.x, y: renderY });
+        proj.currentPos = { x: proj.x, y: renderY };
+        proj.prevPos = proj.currentPos;
+        proj.prevRealY = realY;
+        return;
+    }
+
+    if (proj.x < -50 || proj.x > W+50) {
         proj.active = false;
         return;
     }
@@ -463,7 +484,7 @@ function gameLoop() {
     requestAnimationFrame(gameLoop);
 }
 
-// 发射逻辑（双发左右同时）
+// 发射逻辑
 function fire() {
     const fn = parseFunction(document.getElementById('func').value);
     if (!fn || playerX === undefined) return;
