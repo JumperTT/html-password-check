@@ -436,7 +436,7 @@ function updateAndDrawParticles() {
     particlesEl.textContent = particles.length;
 }
 
-// ==================== 炮弹更新 ====================
+// ==================== 炮弹更新（核心修改：穿透敌人）====================
 function updateProjectile(proj) {
     if (!proj.active) return;
 
@@ -487,6 +487,7 @@ function updateProjectile(proj) {
                 const segStart = { x: proj.prevPos.x, y: proj.prevRealY };
                 const segEnd = { x: subX, y: subRealY };
 
+                // 障碍物碰撞（仍然阻挡）
                 const col = checkSegmentCollision(segStart, segEnd);
                 if (col.hit) {
                     craters.push({ x: col.point.x, y: col.point.y, radius: CONFIG.CRATER_RADIUS + Math.random()*2 });
@@ -496,21 +497,26 @@ function updateProjectile(proj) {
                     return;
                 }
 
-                for (let j=enemies.length-1; j>=0; j--) {
+                // 敌人碰撞（修改为穿透：造成伤害和特效，但不销毁炮弹）
+                for (let j = enemies.length - 1; j >= 0; j--) {
                     const ene = enemies[j];
                     const eneCol = getLineCircleIntersections(segStart, segEnd, ene);
                     if (eneCol.length > 0) {
-                        bloodstains.push({ x: ene.x, y: ene.y, radius: ene.r*1.5, life: CONFIG.BLOOD_LIFETIME });
-                        enemies.splice(j,1);
+                        // 加分、统计、移除敌人
+                        bloodstains.push({ x: ene.x, y: ene.y, radius: ene.r * 1.5, life: CONFIG.BLOOD_LIFETIME });
+                        enemies.splice(j, 1);
                         hits++; score += 10;
                         scoreEl.textContent = score;
                         enemiesEl.textContent = enemies.length;
                         accuracyEl.textContent = `${Math.round(hits/totalShots*100)}%`;
                         if (enemies.length === 0) spawnEnemies(5 + Math.floor(score/40));
+                        
+                        // 创建击杀特效
                         createImpactEffect(ene, true);
-                        proj.active = false;
-                        proj.currentPos = { x: subX, y: subRenderY };
-                        return;
+                        
+                        // 关键修改：不设置 proj.active = false，让炮弹继续飞行
+                        // 跳出当前敌人循环，继续检测其他敌人（虽然一个细分步长内通常只有一个）
+                        // 不需要 return，继续执行细分循环
                     }
                 }
             }
