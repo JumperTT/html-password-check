@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>叶毕希是给</title>
+<style>
+  html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#000;
+    -webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none;}
+  #stage{position:fixed;inset:0;overflow:hidden;background:#000;}
+  .glyph{
+    position:absolute;left:0;top:0;white-space:nowrap;font-weight:900;
+    font-family:"Impact","Arial Black","PingFang SC","Microsoft YaHei",sans-serif;
+    will-change:transform;transform:translate3d(-9999px,-9999px,0);
+    backface-visibility:hidden;pointer-events:none;
+  }
+  .glyph.big{text-shadow:0 0 18px currentColor,0 0 42px currentColor;}
+  .glyph.small{text-shadow:none;}
+  #veil{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
+    background:#000;color:#555;font:14px system-ui,sans-serif;z-index:9;transition:opacity .4s;}
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<div id="veil">press any key to continue</div>
+
+<script>/* ===================== 想改就改这里 ===================== */
+  var WORD  = "叶毕希是给";   // 显示的文字
+  var SAY   = "叶毕希是给";      // 读出来的音（"AAAA" 读不准，改成单字"啊"）
+
+  var COUNT       = 60;    // 同屏数量（大了会卡，手机建议 35~45）
+  var MIN_SIZE    = 34;    // 最小字号 px（不会更小了）
+  var MAX_SIZE    = 150;   // 最大字号 px
+  var GLOW_SIZE   = 72;    // 大于等于这个字号才加光晕，小的不加，省性能
+  var SAY_GAP     = 420;   // 多久读一次（毫秒）
+  var SAY_PITCH   = 1.9;   // 音调，越高越尖
+  var SAY_RATE    = 1.5;   // 语速
+  var SAY_VOLUME  = 1;     // 音量 0~1
+/* ========================================================== */
+
+var stage = document.getElementById('stage');
+var veil  = document.getElementById('veil');
+var W = 0, H = 0, DPR = Math.min(window.devicePixelRatio || 1, 2);
+
+function resize(){ W = window.innerWidth; H = window.innerHeight; }
+resize();
+window.addEventListener('resize', resize);
+
+/* ---------- 文字对象 ---------- */
+var COLORS = ['#ff2d2d','#ff8a00','#ffe600','#39ff14','#00e5ff',
+              '#2979ff','#b026ff','#ff2fd0','#ffffff'];
+var items = [];
+
+function rnd(a, b){ return a + Math.random() * (b - a); }
+
+function Glyph(){
+  var el = document.createElement('div');
+  el.className = 'glyph';
+  el.textContent = WORD;
+  stage.appendChild(el);
+  this.el = el;
+  this.reset(true);
+}
+Glyph.prototype.reset = function(init){
+  this.size  = rnd(MIN_SIZE, MAX_SIZE);
+  this.x     = rnd(-80, W + 80);
+  this.y     = init ? rnd(-80, H + 80) : (Math.random() < .5 ? -90 : H + 90);
+  this.vx    = rnd(-7, 7) || 1;
+  this.vy    = rnd(-7, 7) || 1;
+  this.rot   = rnd(0, 360);
+  this.vr    = rnd(-14, 14);
+  this.spin  = rnd(0.6, 1.7);
+  this.phase = rnd(0, Math.PI * 2);   // 脉冲相位，做变速
+  this.pulse = rnd(1.5, 4);
+  this.sx    = 1; this.sy = 1;
+  this.vs    = rnd(0.04, 0.11) * (Math.random() < .5 ? -1 : 1);
+  this.color = COLORS[(Math.random() * COLORS.length) | 0];
+  this.hue   = Math.random() < .35;   // 只有一部分文字变色，省性能
+  this.hs    = rnd(1, 5);
+
+  this.el.className = 'glyph ' + (this.size >= GLOW_SIZE ? 'big' : 'small');
+  this.el.style.fontSize = this.size + 'px';
+  this.el.style.color = this.color;
+};
+Glyph.prototype.tick = function(t, dt){
+  // 变速：速度按正弦来回起伏，还会偶尔反向
+  var f = 1 + 0.85 * Math.sin(t * 0.0022 * this.spin + this.phase);
+  this.phase += 0.016 * this.pulse * dt;
+
+  this.x += this.vx * f * dt;
+  this.y += this.vy * f * dt;
+  this.rot += this.vr * dt;
+
+  // 变大小：横向/纵向各自伸缩
+  this.sx += this.vs * dt;
+  this.sy -= this.vs * 0.8 * dt;
+  if (this.sx > 1.9 || this.sx < 0.45) this.vs *= -1;
+
+  // 变向：碰边反弹 + 随机拐弯
+  if (this.x < -120 || this.x > W + 120) this.vx *= -1;
+  if (this.y < -120 || this.y > H + 120) this.vy *= -1;
+  if (Math.random() < 0.006) this.vx *= -1;
+  if (Math.random() < 0.006) this.vy *= -1;
+
+  // 变色：偶尔换，不每帧换
+  if (this.hue && Math.random() < 0.01 * this.hs) {
+    this.color = COLORS[(Math.random() * COLORS.length) | 0];
+    this.el.style.color = this.color;
+  }
+
+  this.el.style.transform =
+    'translate3d(' + (this.x | 0) + 'px,' + (this.y | 0) + 'px,0)' +
+    ' rotate(' + this.rot.toFixed(1) + 'deg)' +
+    ' scale(' + this.sx.toFixed(3) + ',' + this.sy.toFixed(3) + ')';
+};
+
+for (var i = 0; i < COUNT; i++) items.push(new Glyph());
+
+/* ---------- 主循环 ---------- */
+var last = performance.now(), tAcc = 0;
+function frame(now){
+  var dt = Math.min((now - last) / 16.67, 3);  // 归一化到 60 帧，掉帧时不炸
+  last = now; tAcc += dt;
+  for (var i = 0; i < items.length; i++) items[i].tick(tAcc, dt);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+/* ---------- 发声：用系统 TTS，每个字都读得清 ---------- */
+var voice = null, ttsOK = 'speechSynthesis' in window;
+function pickVoice(){
+  if (!ttsOK) return;
+  var vs = speechSynthesis.getVoices() || [];
+  var zh = vs.filter(function(v){ return /zh|cmn|Chinese/i.test(v.lang + v.name); });
+  // 优先本地中文女声/男声，拿不到就随便一个中文
+  voice = zh.filter(function(v){ return v.localService; })[0]
+       || zh[0]
+       || vs.filter(function(v){ return v.localService; })[0]
+       || vs[0] || null;
+}
+if (ttsOK) {
+  pickVoice();
+  speechSynthesis.onvoiceschanged = pickVoice;   // Chrome 语音列表是异步到的
+}
+
+var lastSay = 0;
+function say(now){
+  if (ttsOK && now - lastSay >= SAY_GAP) {
+    lastSay = now;
+    try {
+      speechSynthesis.cancel();                  // 不排队，直接顶掉上一句
+      var u = new SpeechSynthesisUtterance(SAY);
+      if (voice) { u.voice = voice; u.lang = voice.lang; } else { u.lang = 'zh-CN'; }
+      u.pitch  = SAY_PITCH;
+      u.rate   = SAY_RATE;
+      u.volume = SAY_VOLUME;
+      speechSynthesis.speak(u);
+    } catch (e) {}
+  }
+  requestAnimationFrame(say);
+}
+requestAnimationFrame(say);
+
+/* 切走就闭嘴，回来继续 */
+document.addEventListener('visibilitychange', function(){
+  if (!ttsOK) return;
+  if (document.hidden) speechSynthesis.cancel();
+});
+
+/* ---------- 自动开始；被浏览器拦了就等第一次点击解锁 ---------- */
+var started = false;
+function unlock(){
+  if (started) return;
+  started = true;
+  veil.style.opacity = 0;
+  setTimeout(function(){ veil.style.display = 'none'; }, 420);
+  if (ttsOK) {
+    try { speechSynthesis.speak(new SpeechSynthesisUtterance('')); } catch (e) {}
+  }
+  if (document.documentElement.requestFullscreen) {
+    document.documentElement.requestFullscreen().catch(function(){});
+  }
+}
+['pointerdown','keydown','touchstart'].forEach(function(ev){
+  window.addEventListener(ev, unlock, { once: true });
+});
+// 用户之前点过这个页面（有激活状态）就直接开始，不用再点
+if (navigator.userActivation && navigator.userActivation.hasBeenActive) unlock();
+else setTimeout(unlock, 800);   // 动画始终在跑，这里只是把提示藏掉
+</script>
+</body>
+</html>
