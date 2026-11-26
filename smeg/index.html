@@ -3,10 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-    <title>叶毕希是给 · 流光</title>
+    <title>叶毕希是给</title>
     <style>
-        html,
-        body {
+        html, body {
             margin: 0;
             padding: 0;
             width: 100%;
@@ -35,16 +34,16 @@
             transform: translate3d(-9999px, -9999px, 0);
             backface-visibility: hidden;
             pointer-events: none;
+            /* 背景文字无描边，弹幕单独设置 */
+            -webkit-text-stroke: none;
+            text-shadow: none !important;
         }
-        .glyph.big {
-            text-shadow: 0 0 8px currentColor, 0 0 22px currentColor;
-        }
-        .glyph.small {
-            text-shadow: none;
-        }
+        .glyph.big, .glyph.small { text-shadow: none !important; }
         .glyph.drifter {
             text-shadow: none !important;
             opacity: 0.85;
+            /* 弹幕保留灰色描边 */
+            -webkit-text-stroke: 1px #888;
         }
         #veil {
             position: fixed;
@@ -55,9 +54,9 @@
             background: #000;
             color: #555;
             font: 14px system-ui, sans-serif;
-            z-index: 99;          /* 提高层级，确保在最上面 */
+            z-index: 99;
             transition: opacity .4s;
-            cursor: pointer;      /* 提示可点击 */
+            cursor: pointer;
         }
     </style>
 </head>
@@ -69,39 +68,41 @@
         /* ===================== 配置区 ===================== */
         var WORD = "叶毕希是给";
         var SAY = "叶毕希是给";
-        var COUNT = 83;
-        var MIN_SIZE = 32;
-        var MAX_SIZE = 130;
-        var GLOW_SIZE = 72;
-        var SAY_GAP = 380;
+        var COUNT = 120;          /* 背景文字数量（增多） */
+        var MIN_SIZE = 36;
+        var MAX_SIZE = 110;
+        var SAY_GAP = 500;
         var SAY_PITCH = 1.9;
         var SAY_RATE = 1.5;
         var SAY_VOLUME = 1;
-        var DRIFTER_COUNT = 15;
+        var DRIFTER_COUNT = 12;   /* 弹幕数量 */
+        var DRIFTER_SPEED = -3;   /* 弹幕向左速度 */
+        var DRIFTER_SIZE = 34;    /* 弹幕字体大小 */
+        var DRIFTER_SPACING = 180;/* 弹幕水平间距 */
         /* ================================================== */
 
         var stage = document.getElementById('stage');
         var veil = document.getElementById('veil');
-        var W = 0, H = 0, DPR = Math.min(window.devicePixelRatio || 1, 2);
+        var W = 0, H = 0;
 
         function resize() { W = window.innerWidth; H = window.innerHeight; }
         resize();
         window.addEventListener('resize', resize);
 
-        var COLORS = ['#ff2d2d', '#ff8a00', '#ffe600', '#39ff14', '#00e5ff',
-            '#2979ff', '#b026ff', '#ff2fd0', '#ffffff'
-        ];
-
         function rnd(a, b) { return a + Math.random() * (b - a); }
-        function pickColor() { return COLORS[(Math.random() * COLORS.length) | 0]; }
 
-        /* ================ Glyph 类 ================ */
+        /* ================ Glyph 背景文字（颜色渐变） ================ */
         function Glyph(cx, cy) {
             var el = document.createElement('div');
             el.className = 'glyph';
             el.textContent = WORD;
             stage.appendChild(el);
             this.el = el;
+            // 每个文字独立的色相、饱和度、亮度、变化速度
+            this.hue = rnd(0, 360);
+            this.hueSpeed = rnd(0.08, 0.25) * (Math.random() < 0.5 ? 1 : -1);
+            this.sat = rnd(65, 95);
+            this.light = rnd(50, 75);
             if (cx !== undefined && cy !== undefined) {
                 this.reset(false, cx, cy);
             } else {
@@ -121,21 +122,19 @@
                 this.x = Math.random() < .5 ? -90 : W + 90;
                 this.y = rnd(-80, H + 80);
             }
-            this.vx = rnd(-7, 7) || 1;
-            this.vy = rnd(-7, 7) || 1;
+            this.vx = rnd(-5, 5) || 1;
+            this.vy = rnd(-5, 5) || 1;
             this.rot = rnd(0, 360);
-            this.vr = rnd(-4, 4);
+            this.vr = rnd(-3, 3);
             this.spin = rnd(0.6, 1.7);
             this.phase = rnd(0, Math.PI * 2);
             this.pulse = rnd(1.5, 4);
             this.scale = 1;
-            this.vs = rnd(0.010, 0.020) * (Math.random() < .5 ? -1 : 1);
-            this.color = pickColor();
-            this.hue = Math.random() < .28;
-            this.hs = rnd(1, 5);
-            this.el.className = 'glyph ' + (this.size >= GLOW_SIZE ? 'big' : 'small');
+            this.vs = rnd(0.010, 0.016) * (Math.random() < .5 ? -1 : 1);
+            this.el.className = 'glyph';
             this.el.style.fontSize = this.size + 'px';
-            this.el.style.color = this.color;
+            // 立即应用颜色
+            this.el.style.color = 'hsl(' + this.hue + ',' + this.sat + '%,' + this.light + '%)';
             this.el.style.transform =
                 'translate3d(' + (this.x | 0) + 'px,' + (this.y | 0) + 'px,0)' +
                 ' rotate(' + this.rot.toFixed(1) + 'deg)' +
@@ -143,44 +142,47 @@
         };
 
         Glyph.prototype.tick = function(t, dt) {
-            var f = 1 + 0.48 * Math.sin(t * 0.0016 * this.spin + this.phase);
-            this.phase += 0.012 * this.pulse * dt;
+            // 颜色渐变：色相随时间变化
+            this.hue += this.hueSpeed * dt;
+            if (this.hue > 360) this.hue -= 360;
+            if (this.hue < 0) this.hue += 360;
+            this.el.style.color = 'hsl(' + this.hue + ',' + this.sat + '%,' + this.light + '%)';
+
+            var f = 1 + 0.38 * Math.sin(t * 0.0012 * this.spin + this.phase);
+            this.phase += 0.01 * this.pulse * dt;
             this.x += this.vx * f * dt;
             this.y += this.vy * f * dt;
             this.rot += this.vr * dt;
             this.scale += this.vs * dt;
-            if (this.scale > 1.18 || this.scale < 0.76) this.vs *= -1;
+            if (this.scale > 1.15 || this.scale < 0.78) this.vs *= -1;
             if (this.x < -130 || this.x > W + 130) this.vx *= -1;
             if (this.y < -130 || this.y > H + 130) this.vy *= -1;
-            if (Math.random() < 0.0035) this.vx *= -1;
-            if (Math.random() < 0.0035) this.vy *= -1;
-            if (this.hue && Math.random() < 0.006 * this.hs) {
-                this.color = pickColor();
-                this.el.style.color = this.color;
-            }
+            if (Math.random() < 0.004) this.vx *= -1;
+            if (Math.random() < 0.004) this.vy *= -1;
+
             this.el.style.transform =
                 'translate3d(' + (this.x | 0) + 'px,' + (this.y | 0) + 'px,0)' +
                 ' rotate(' + this.rot.toFixed(1) + 'deg)' +
                 ' scale(' + this.scale.toFixed(3) + ')';
         };
 
-        /* ================ Drifter 类 ================ */
-        function Drifter() {
+        /* ================ Drifter 弹幕（颜色固定，从右向左） ================ */
+        function Drifter(index) {
             var el = document.createElement('div');
             el.className = 'glyph drifter';
             el.textContent = WORD;
             stage.appendChild(el);
             this.el = el;
-            this.size = rnd(28, 88);
-            this.x = rnd(-300, -60);
-            this.y = rnd(40, H - 40);
-            this.speed = rnd(1.6, 4.2);
-            this.color = pickColor();
-            this.hueShift = Math.random() < 0.45;
-            this.hueTimer = 0;
+            this.index = index;
+            this.size = DRIFTER_SIZE;
+            this.x = W + 60 + index * DRIFTER_SPACING;
+            this.y = rnd(60, H - 60);
+            this.speed = DRIFTER_SPEED;
+            // 颜色固定，初始随机后不再变化
+            this.color = '#' + Math.floor(Math.random()*16777215).toString(16).padStart(6,'0');
             this.floatPhase = rnd(0, Math.PI * 2);
-            this.floatAmp = rnd(4, 13);
-            this.floatSpeed = rnd(0.015, 0.045);
+            this.floatAmp = rnd(3, 10);
+            this.floatSpeed = rnd(0.025, 0.05);
             this.el.style.fontSize = this.size + 'px';
             this.el.style.color = this.color;
             this.el.style.transform = 'translate3d(' + (this.x | 0) + 'px,' + (this.y | 0) + 'px,0)';
@@ -190,33 +192,20 @@
             this.x += this.speed * dt;
             this.floatPhase += this.floatSpeed * dt;
             var yOff = Math.sin(this.floatPhase) * this.floatAmp;
-            if (this.hueShift && Math.random() < 0.008) {
-                this.color = pickColor();
-                this.el.style.color = this.color;
-            }
             this.el.style.transform =
                 'translate3d(' + (this.x | 0) + 'px,' + ((this.y + yOff) | 0) + 'px,0)';
-            if (this.x > W + 280) {
-                this.x = rnd(-320, -80);
-                this.y = rnd(40, H - 40);
-                this.speed = rnd(1.6, 4.2);
+            if (this.x < -350) {
+                this.x = W + 60 + this.index * DRIFTER_SPACING;
+                this.y = rnd(60, H - 60);
                 this.floatPhase = rnd(0, Math.PI * 2);
-                if (this.hueShift) {
-                    this.color = pickColor();
-                    this.el.style.color = this.color;
-                } else {
-                    if (Math.random() < 0.25) {
-                        this.color = pickColor();
-                        this.el.style.color = this.color;
-                    }
-                }
+                // 颜色不变
             }
         };
 
-        /* ================ 初始化对象 ================ */
+        /* ================ 初始化 ================ */
         var items = [];
         for (var i = 0; i < COUNT; i++) items.push(new Glyph());
-        for (var i = 0; i < DRIFTER_COUNT; i++) items.push(new Drifter());
+        for (var i = 0; i < DRIFTER_COUNT; i++) items.push(new Drifter(i));
 
         /* ================ 动画循环 ================ */
         var last = performance.now(), tAcc = 0;
@@ -292,21 +281,17 @@
             items.push(fresh);
         }, { passive: true });
 
-        /* ================ ★★★ 关键修复：解除遮罩 ★★★ ================ */
+        /* ================ 解除遮罩 ================ */
         function dismissVeil() {
-            if (veil.style.display === 'none') return; // 防止重复执行
+            if (veil.style.display === 'none') return;
             veil.style.opacity = '0';
             veil.style.pointerEvents = 'none';
             setTimeout(function() {
                 veil.style.display = 'none';
             }, 400);
         }
-
-        // 方式一：按下任意键盘键
         document.addEventListener('keydown', dismissVeil);
-        // 方式二：点击遮罩本身
         veil.addEventListener('click', dismissVeil);
-        // 方式三：触摸遮罩（移动端）
         veil.addEventListener('touchstart', dismissVeil, { passive: true });
     </script>
 </body>
