@@ -36,14 +36,12 @@
             backface-visibility: hidden;
             pointer-events: none;
         }
-        /* ★ 光晕减弱：原来 0 0 18px / 0 0 42px → 减为 8px / 22px */
         .glyph.big {
             text-shadow: 0 0 8px currentColor, 0 0 22px currentColor;
         }
         .glyph.small {
             text-shadow: none;
         }
-        /* 漂移文字专属 —— 无光晕，更轻盈 */
         .glyph.drifter {
             text-shadow: none !important;
             opacity: 0.85;
@@ -57,8 +55,9 @@
             background: #000;
             color: #555;
             font: 14px system-ui, sans-serif;
-            z-index: 9;
+            z-index: 99;          /* 提高层级，确保在最上面 */
             transition: opacity .4s;
+            cursor: pointer;      /* 提示可点击 */
         }
     </style>
 </head>
@@ -67,11 +66,9 @@
     <div id="veil">press any key to continue</div>
 
     <script>
-        /* ===================== 想改就改这里 ===================== */
+        /* ===================== 配置区 ===================== */
         var WORD = "叶毕希是给";
         var SAY = "叶毕希是给";
-
-        /* ★ 文字数量 *= 1.5 : 55 → 83 */
         var COUNT = 83;
         var MIN_SIZE = 32;
         var MAX_SIZE = 130;
@@ -80,19 +77,14 @@
         var SAY_PITCH = 1.9;
         var SAY_RATE = 1.5;
         var SAY_VOLUME = 1;
-
-        /* ★ 新增：漂移文字数量 */
         var DRIFTER_COUNT = 15;
-        /* ========================================================== */
+        /* ================================================== */
 
         var stage = document.getElementById('stage');
         var veil = document.getElementById('veil');
-        var W = 0,
-            H = 0,
-            DPR = Math.min(window.devicePixelRatio || 1, 2);
+        var W = 0, H = 0, DPR = Math.min(window.devicePixelRatio || 1, 2);
 
-        function resize() { W = window.innerWidth;
-            H = window.innerHeight; }
+        function resize() { W = window.innerWidth; H = window.innerHeight; }
         resize();
         window.addEventListener('resize', resize);
 
@@ -101,19 +93,15 @@
         ];
 
         function rnd(a, b) { return a + Math.random() * (b - a); }
-
         function pickColor() { return COLORS[(Math.random() * COLORS.length) | 0]; }
 
-        /* ====================================================================
-           Glyph  —  原有浮动文字（修复 + 增强）
-           ==================================================================== */
+        /* ================ Glyph 类 ================ */
         function Glyph(cx, cy) {
             var el = document.createElement('div');
             el.className = 'glyph';
             el.textContent = WORD;
             stage.appendChild(el);
             this.el = el;
-            // 若传入坐标则用定点，否则随机
             if (cx !== undefined && cy !== undefined) {
                 this.reset(false, cx, cy);
             } else {
@@ -123,7 +111,6 @@
 
         Glyph.prototype.reset = function(init, fx, fy) {
             this.size = rnd(MIN_SIZE, MAX_SIZE);
-            // 定点 或 随机
             if (fx !== undefined && fy !== undefined) {
                 this.x = fx;
                 this.y = fy;
@@ -137,23 +124,18 @@
             this.vx = rnd(-7, 7) || 1;
             this.vy = rnd(-7, 7) || 1;
             this.rot = rnd(0, 360);
-            /* ★ 旋转速度从 ±14 降到 ±4，转动更慢 */
             this.vr = rnd(-4, 4);
             this.spin = rnd(0.6, 1.7);
             this.phase = rnd(0, Math.PI * 2);
             this.pulse = rnd(1.5, 4);
-
             this.scale = 1;
             this.vs = rnd(0.010, 0.020) * (Math.random() < .5 ? -1 : 1);
-
             this.color = pickColor();
             this.hue = Math.random() < .28;
             this.hs = rnd(1, 5);
-
             this.el.className = 'glyph ' + (this.size >= GLOW_SIZE ? 'big' : 'small');
             this.el.style.fontSize = this.size + 'px';
             this.el.style.color = this.color;
-            // 立刻渲染位置
             this.el.style.transform =
                 'translate3d(' + (this.x | 0) + 'px,' + (this.y | 0) + 'px,0)' +
                 ' rotate(' + this.rot.toFixed(1) + 'deg)' +
@@ -163,80 +145,57 @@
         Glyph.prototype.tick = function(t, dt) {
             var f = 1 + 0.48 * Math.sin(t * 0.0016 * this.spin + this.phase);
             this.phase += 0.012 * this.pulse * dt;
-
             this.x += this.vx * f * dt;
             this.y += this.vy * f * dt;
             this.rot += this.vr * dt;
-
             this.scale += this.vs * dt;
             if (this.scale > 1.18 || this.scale < 0.76) this.vs *= -1;
-
             if (this.x < -130 || this.x > W + 130) this.vx *= -1;
             if (this.y < -130 || this.y > H + 130) this.vy *= -1;
             if (Math.random() < 0.0035) this.vx *= -1;
             if (Math.random() < 0.0035) this.vy *= -1;
-
             if (this.hue && Math.random() < 0.006 * this.hs) {
                 this.color = pickColor();
                 this.el.style.color = this.color;
             }
-
             this.el.style.transform =
                 'translate3d(' + (this.x | 0) + 'px,' + (this.y | 0) + 'px,0)' +
                 ' rotate(' + this.rot.toFixed(1) + 'deg)' +
                 ' scale(' + this.scale.toFixed(3) + ')';
         };
 
-        /* ====================================================================
-           Drifter  —  从左到右 · 匀速 · 随机位置 · 定速 · 随机颜色 · 飘动
-           ==================================================================== */
+        /* ================ Drifter 类 ================ */
         function Drifter() {
             var el = document.createElement('div');
             el.className = 'glyph drifter';
             el.textContent = WORD;
             stage.appendChild(el);
             this.el = el;
-
             this.size = rnd(28, 88);
-            /* 起始在左侧外 */
             this.x = rnd(-300, -60);
-            /* 垂直位置随机，避开边缘 */
             this.y = rnd(40, H - 40);
-            /* 定速：每个实例速度固定，但彼此不同 */
             this.speed = rnd(1.6, 4.2);
             this.color = pickColor();
-            /* 是否随机变色 */
             this.hueShift = Math.random() < 0.45;
             this.hueTimer = 0;
-
-            /* 飘动参数 */
             this.floatPhase = rnd(0, Math.PI * 2);
             this.floatAmp = rnd(4, 13);
             this.floatSpeed = rnd(0.015, 0.045);
-
             this.el.style.fontSize = this.size + 'px';
             this.el.style.color = this.color;
             this.el.style.transform = 'translate3d(' + (this.x | 0) + 'px,' + (this.y | 0) + 'px,0)';
         }
 
         Drifter.prototype.tick = function(t, dt) {
-            /* 匀速右移 */
             this.x += this.speed * dt;
-
-            /* 飘动：上下正弦浮动 */
             this.floatPhase += this.floatSpeed * dt;
             var yOff = Math.sin(this.floatPhase) * this.floatAmp;
-
-            /* 随机变色（轻柔节奏） */
             if (this.hueShift && Math.random() < 0.008) {
                 this.color = pickColor();
                 this.el.style.color = this.color;
             }
-
             this.el.style.transform =
                 'translate3d(' + (this.x | 0) + 'px,' + ((this.y + yOff) | 0) + 'px,0)';
-
-            /* 超出右侧边界 → 重置到左侧，换新颜色 */
             if (this.x > W + 280) {
                 this.x = rnd(-320, -80);
                 this.y = rnd(40, H - 40);
@@ -246,7 +205,6 @@
                     this.color = pickColor();
                     this.el.style.color = this.color;
                 } else {
-                    /* 不变色的也偶尔换一下 */
                     if (Math.random() < 0.25) {
                         this.color = pickColor();
                         this.el.style.color = this.color;
@@ -255,23 +213,13 @@
             }
         };
 
-        /* ====================================================================
-           初始化
-           ==================================================================== */
+        /* ================ 初始化对象 ================ */
         var items = [];
-
-        /* 原有 Glyph */
         for (var i = 0; i < COUNT; i++) items.push(new Glyph());
-
-        /* ★ 新增 Drifter */
         for (var i = 0; i < DRIFTER_COUNT; i++) items.push(new Drifter());
 
-        /* ====================================================================
-           动画循环
-           ==================================================================== */
-        var last = performance.now(),
-            tAcc = 0;
-
+        /* ================ 动画循环 ================ */
+        var last = performance.now(), tAcc = 0;
         function frame(now) {
             var dt = Math.min((now - last) / 16.67, 3);
             last = now;
@@ -281,16 +229,11 @@
         }
         requestAnimationFrame(frame);
 
-        /* ====================================================================
-           TTS  —  修复：只读前两个字 → 增加延迟 + 稳健选声
-           ==================================================================== */
-        var voice = null,
-            ttsOK = 'speechSynthesis' in window;
-
+        /* ================ TTS ================ */
+        var voice = null, ttsOK = 'speechSynthesis' in window;
         function pickVoice() {
             if (!ttsOK) return;
             var vs = speechSynthesis.getVoices() || [];
-            // 优先本地中文
             var zh = vs.filter(function(v) { return /zh|cmn|Chinese/i.test(v.lang + v.name); });
             voice = zh.filter(function(v) { return v.localService; })[0] ||
                 zh[0] ||
@@ -302,25 +245,18 @@
             speechSynthesis.onvoiceschanged = pickVoice;
         }
 
-        var lastSay = 0;
-        var saying = false;
-
+        var lastSay = 0, saying = false;
         function say(now) {
             if (!ttsOK) { requestAnimationFrame(say); return; }
             if (now - lastSay >= SAY_GAP && !saying) {
                 lastSay = now;
                 saying = true;
                 try {
-                    /* ★ 先 cancel，再延迟 speak，避免竞争 */
                     speechSynthesis.cancel();
                     setTimeout(function() {
                         var u = new SpeechSynthesisUtterance(SAY);
-                        if (voice) {
-                            u.voice = voice;
-                            u.lang = voice.lang;
-                        } else {
-                            u.lang = 'zh-CN';
-                        }
+                        if (voice) { u.voice = voice; u.lang = voice.lang; }
+                        else { u.lang = 'zh-CN'; }
                         u.pitch = SAY_PITCH;
                         u.rate = SAY_RATE;
                         u.volume = SAY_VOLUME;
@@ -328,9 +264,7 @@
                         u.onerror = function() { saying = false; };
                         speechSynthesis.speak(u);
                     }, 80);
-                } catch (e) {
-                    saying = false;
-                }
+                } catch (e) { saying = false; }
             }
             requestAnimationFrame(say);
         }
@@ -341,9 +275,7 @@
             if (document.hidden) speechSynthesis.cancel();
         });
 
-        /* ====================================================================
-           ★ 点击任意位置 → 在此位置生成一个新文字（Glyph）
-           ==================================================================== */
+        /* ================ 点击添加新文字 ================ */
         stage.addEventListener('click', function(e) {
             var rect = stage.getBoundingClientRect();
             var cx = e.clientX - rect.left;
@@ -351,8 +283,6 @@
             var fresh = new Glyph(cx, cy);
             items.push(fresh);
         });
-
-        /* 移动端 touch 兼容 */
         stage.addEventListener('touchstart', function(e) {
             var touch = e.changedTouches[0];
             var rect = stage.getBoundingClientRect();
@@ -362,10 +292,22 @@
             items.push(fresh);
         }, { passive: true });
 
-        /* ====================================================================
-           启动 / 解锁
-           ==================================================================== */
-        var started = false;
+        /* ================ ★★★ 关键修复：解除遮罩 ★★★ ================ */
+        function dismissVeil() {
+            if (veil.style.display === 'none') return; // 防止重复执行
+            veil.style.opacity = '0';
+            veil.style.pointerEvents = 'none';
+            setTimeout(function() {
+                veil.style.display = 'none';
+            }, 400);
+        }
 
-        function unlock() {
-            if
+        // 方式一：按下任意键盘键
+        document.addEventListener('keydown', dismissVeil);
+        // 方式二：点击遮罩本身
+        veil.addEventListener('click', dismissVeil);
+        // 方式三：触摸遮罩（移动端）
+        veil.addEventListener('touchstart', dismissVeil, { passive: true });
+    </script>
+</body>
+</html>
