@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>叶毕希是给</title>
+<style>
+  html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#000;
+    -webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none;}
+  #stage{position:fixed;inset:0;background:#000;overflow:hidden;touch-action:none;
+    display:flex;align-items:center;justify-content:center;}
+  /* 居中的视口：所有 UI（大字 / 按钮）都在它里面水平垂直居中 */
+  #viewport{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    width:100%;height:100%;padding:0;box-sizing:border-box;flex:0 0 auto;}
+  /* 中间的文字行：整行（ABCD + 按钮块）在屏幕正中 */
+  #line{position:relative;left:auto;top:auto;transform:none;margin:0;padding:0;flex:0 0 auto;
+    display:flex;align-items:center;justify-content:center;text-align:center;
+    font-family:"Arial Black",Arial,sans-serif;font-weight:900;white-space:nowrap;}
+  .ch{color:#fff;line-height:1;}
+  /* 按钮：与文字同字号，深灰底灰框，统一按 em 定尺寸 */
+  .btn{position:relative;display:inline-flex;align-items:center;justify-content:center;
+    flex:0 0 auto;
+    width:var(--bs);height:var(--bs);
+    background:#2b2b2b;border:2px solid #888;color:#fff;line-height:1;cursor:pointer;
+    font-family:"Arial Black",Arial,sans-serif;font-weight:900;padding:0;
+    box-sizing:border-box;transition:background .1s;}
+  .optWrap{flex:0 0 auto;align-items:center;justify-content:center;}
+  .btn:active{background:#3d3d3d;}
+  /* 2x2 选项容器：绝对定位在文字行内，占据原按钮的位置 */
+  #options{position:absolute;left:0;top:0;display:none;
+    grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;}
+  .optWrap{position:relative;display:flex;flex:0 0 auto;align-items:center;justify-content:center;}
+  /* 红叉（纯 CSS 绘制，非 emoji） */
+  .cross{position:absolute;inset:0;pointer-events:none;display:none;}
+  .cross::before,.cross::after{content:"";position:absolute;left:50%;top:50%;
+    width:140%;height:6px;background:#e11;transform-origin:center;}
+  .cross::before{transform:translate(-50%,-50%) rotate(45deg);}
+  .cross::after{transform:translate(-50%,-50%) rotate(-50deg);}
+  /* 弹幕层 */
+  #barrage{position:absolute;inset:0;pointer-events:none;overflow:hidden;}
+  .bm{position:absolute;font-family:"Arial Black",Arial,sans-serif;font-weight:900;
+    will-change:transform,opacity;transition:opacity 90ms linear;}
+  /* 光波 */
+  .wave{position:absolute;border-radius:50%;pointer-events:none;
+    transform:translate(-50%,-50%) scale(0);}
+</style>
+</head>
+<body>
+<div id="stage">
+ <div id="viewport">
+  <div id="line">
+    <div id="options"></div>
+  </div>
+ </div>
+ <div id="barrage"></div>
+</div>
+
+<script>
+/* ========================================================================
+   游戏参数配置区（在这里改，全部参数都在这）
+   ======================================================================== */
+const CONFIG = {
+  prefixText:  "叶毕希是",     // 按钮前面显示的固定大字
+  correctKey:  "给",        // 正确选项的字母
+  optionPool:  ["给","狗","人","猪"], // 4 个选项内容（打乱后排列成 2x2）
+  startCount:  5,          // x 初始值（弹幕数量）
+  addPerHit:   5,          // 快速窗口内点中正确按钮，x 增加量
+  resetCount:  5,          // 重置时 x 回到该值
+  fastWindow:  500,        // “快速命中”判定窗口(毫秒)：选项出现后这段时间内点中算连击
+  btnSwitchDelay: 500,     // 点击后到“选项重新打乱”的间隔(毫秒)
+  fontSizeVW:  11,         // 字号基准(相对视口宽度 vw)
+  fontMinPx:   22,         // 字号下限，保证按钮不会小到点不中
+  fontMaxPx:   130,        // 字号上限，避免大屏上文字过分巨大
+  btnSizeEm:   1.35,       // 按钮边长(相对字号 em)，单个按钮与 4 个按钮都用这个值，保证等大
+  btnGapEm:    0.22,       // 2x2 选项之间的间距(相对字号 em)
+  btnBg:       "#2b2b2b",  // 按钮背景色
+  btnBorder:   "#888888",  // 按钮边框色
+  btnBorderPx: 2,          // 按钮边框粗细(px)
+  btnText:     "#ffffff",  // 按钮文字色
+  waveColor:   "255,255,255", // 光波颜色(R,G,B)，纯白
+  waveThicknessMax: 110,   // 光波环带最粗处(px)，越大越粗
+  waveDuration: 620,       // 光波扩散时长(毫秒)
+  barrageLife: 2600,       // 弹幕存活时间(毫秒)
+  barrageMinSize: 15.2,    // 弹幕最小字号(px)【再调小 10%】原 16.9
+  barrageMaxSize: 51.2,    // 弹幕最大字号(px)【再调小 10%】原 56.9
+  barrageMinSpeed: 2,      // 弹幕最小速度
+  barrageMaxSpeed: 8,      // 弹幕最大速度
+  barrageMaxSpin: 0.12,    // 弹幕最大角动量(每帧弧度)
+  barragePopScale: 1.8,    // 最终放大倍数（实际最大尺寸 = 字号 × 此值）【已调小 10%】原 2.0
+  barrageStartScale: 0.04, // 起手尺寸：贴着按钮中心几乎不可见，再长大射出
+  barrageSpread: 0.34,     // 放射抖动 0=完美均匀放射, 1=接近全随机
+  barrageBoostTime: 320,   // 喷射加速持续(毫秒)：越大冲得越猛
+  barrageGrowTime: 900,    // 弹幕「由小变大」时长(毫秒)：越大越能看清生长过程
+  barrageGrowEase: 0.45,   // 放大曲线指数：0.35~0.6 最平滑(先快后缓)，1=线性(不要设1)
+  barrageJitter: 0.35,     // 起点抖动：0=全部严格从按钮中心一个点射出, 越大起点越散
+  barrageFadeIn: 0.30,     // 淡入占生长过程的比例：越大越晚显形(越像「逐渐出现」)
+};
+/* ======================= 参数配置区结束，下面不用改 ===================== */
+
+const stage   = document.getElementById('stage');
+const line    = document.getElementById('line');
+const options = document.getElementById('options');
+const barrage = document.getElementById('barrage');
+
+let x = CONFIG.startCount;      // 当前弹幕数量
+let phase = "idle";             // idle | waiting | choosing
+let optionsShownAt = 0;
+let fastArmed = false;          // 本轮是否处于“快速命中”可加成状态
+let singleBtn = null;
+let slot = null;                // 按钮/选项的原位占位容器（锁定尺寸）
+let started = false;            // 是否已进入永久 4 按钮模式
+let lastOrigin = null;          // 上一次光波/弹幕的发出点（重排后仍能对上）
+
+// ---- 几何计算：全部为纯函数，只依赖传入的字号，绝不回调 baseFontPx()，避免循环依赖 ----
+// 按钮边长（含边框），单个按钮与 2x2 里的按钮严格一致
+function btnBoxPxAt(fs){
+  // 不中间取整：content 用小数，最终盒宽 = content + 2*border，
+  // 与浏览器 content-box 布局完全同值，避免 JS 算 66 / 实际排 67 造成的中心偏移
+  return fs * CONFIG.btnSizeEm + CONFIG.btnBorderPx * 2;
+}
+// 2x2 选项块的外框边长（按钮块永远占这么大，1 个按钮和 4 个按钮都居中于其中）
+function slotTotalPxAt(fs){
+  return btnBoxPxAt(fs) * 2 + Math.round(fs * CONFIG.btnGapEm);
+}
+// 整行 UI 的宽度 = ABCD 宽度 + 按钮块宽度
+function lineWidthAt(fs){
+  return CONFIG.prefixText.length * fs + slotTotalPxAt(fs);
+}
+
+// 当前字号（窄屏时自动收小，保证整行 UI 完整居中、不出屏）
+let curFontPx = 16;
+function baseFontPx(){ return curFontPx; }
+
+// 只按视口尺寸算字号：无任何 DOM 读取，不会重排、不会递归
+function computeFontPx(){
+  const vw = window.innerWidth || document.documentElement.clientWidth || 360;
+  const vh = window.innerHeight || document.documentElement.clientHeight || vw;
+  // 基准按「宽度」取（原来按 min(vw,vh)，手机上会被高度压成极小按钮）
+  let fs = Math.round(vw * CONFIG.fontSizeVW / 100);
+  const lo = CONFIG.fontMinPx, hi = CONFIG.fontMaxPx;
+  fs = Math.max(lo, Math.min(hi, fs));
+  // 窄屏收小，但收不下也不低于 fontMinPx（超出则交给缩放兜底）
+  const max = vw - 8;
+  let guard = 0;
+  while(fs > lo && lineWidthAt(fs) > max && guard++ < 600) fs -= 1;
+  // 纵向保护：整行高度不得超过视口高度
+  const rowH = slotTotalPxAt(fs);
+  if(rowH > vh - 8 && CONFIG.fontMinPx < fs){
+    fs = Math.max(CONFIG.fontMinPx, Math.floor(fs * (vh - 8) / rowH));
+  }
+  return fs;
+}
+
+// 整行 UI 总宽（用于超窄屏时对 #line 整体做等比缩放兜底）
+function lineTotalWidth(){
+  return lineWidthAt(curFontPx);
+}
+
+// 渲染“固定大字 ABCD + 单个按钮 E”这一行（ABCD 常驻，不重绘）
+function renderSingleLine(){
+  phase = "idle";
+  fastArmed = false;
+  started = false;
+  options.style.display = "none";
+  options.innerHTML = "";
+  line.innerHTML = "";
+  line.style.display = "flex";
+
+  curFontPx = computeFontPx();
+  const fs = baseFontPx();
+  line.style.fontSize = fs + "px";
+
+  for(const c of CONFIG.prefixText){
+    const s = document.createElement('span');
+    s.className = 'ch';
+    s.textContent = c;
+    line.appendChild(s);
+  }
+
+  // 原位占位容器：尺寸一次性锁定，之后 1 个按钮 / 4 个按钮都装在这里，ABCD 不挪位
+  slot = document.createElement('div');
+  slot.className = 'slot';
+  slot.style.position = "relative";
+  slot.style.display = "block";
+  slot.style.flex = "0 0 auto";
+  slot.style.alignItems = "flex-start";
+  slot.style.justifyContent = "flex-start";
+  line.appendChild(slot);
+  slot.appendChild(options);
+  lockSlot();
+
+  mountSingleButton();
+}
+
+// 锁定占位容器尺寸 = 2x2 的总尺寸（保证切换前后按钮大小一致、ABCD 不跳）
+function lockSlot(){
+  const fs = curFontPx;
+  const b  = btnBoxPxAt(fs);
+  const gap = fs * CONFIG.btnGapEm;
+  const total = b * 2 + gap;
+  slot.style.width  = total + "px";
+  slot.style.height = total + "px";
+
+  options.style.left = "0";
+  options.style.top  = "0";
+  options.style.transform = "none";
+  options.style.gap = gap + "px";
+  options.style.width  = total + "px";
+  options.style.height = total + "px";
+  // 显式指定轨道尺寸（不用 1fr）：避免含边框的舍入让 4 颗按钮中心偏移
+  const boxed = b + CONFIG.btnBorderPx * 2;
+  options.style.gridTemplateColumns = boxed + "px " + boxed + "px";
+  options.style.gridTemplateRows    = boxed + "px " + boxed + "px";
+  options.style.setProperty('--bs', (b + CONFIG.btnBorderPx * 2) + "px");
+
+  // 关键：slot 宽度恒定，ABCD 与按钮块的「左边缘」都被锚定，
+  // 所以 1 个按钮 → 4 个按钮切换时 ABCD 绝不挪位、不重叠；
+  // 整行（ABCD + 按钮块）再由 #line 的 justify-content:center 统一水平居中。
+  line.style.paddingRight = "0px";
+  line.style.marginLeft   = "0px";
+  const scale = Math.min(1, (window.innerWidth - 8) / Math.max(1, lineTotalWidth()));
+  line.style.transform = scale < 1 ? "scale(" + scale + ")" : "none";
+  line.style.transformOrigin = "center center";
+}
+
+function styleButton(b, fs){
+  b.className = 'btn';
+  b.style.fontSize = fs + "px";
+  // 尺寸统一用 --bs（= btnSizeEm * 字号），单个按钮与 2x2 中的按钮严格等大
+  const box = btnBoxPxAt(curFontPx);
+  b.style.setProperty('--bs', box + "px");
+  b.style.width  = (box + CONFIG.btnBorderPx * 2) + "px";
+  b.style.height = (box + CONFIG.btnBorderPx * 2) + "px";
+  b.style.borderWidth = CONFIG.btnBorderPx + "px";
+  b.style.background = CONFIG.btnBg;
+  b.style.borderColor = CONFIG.btnBorder;
+  b.style.borderStyle = "solid";
+  b.style.color = CONFIG.btnText;
+}
+
+// 在占位容器中央放一个按钮（与 4 按钮模式尺寸完全相同）
+function mountSingleButton(){
+  slot.querySelectorAll('.btn,.cross').forEach(n=>n.remove());
+  options.style.display = "none";
+
+  const fs = baseFontPx();
+  singleBtn = document.createElement('div');
+  styleButton(singleBtn, fs);
+  singleBtn.textContent = CONFIG.correctKey;
+  singleBtn.addEventListener('click', onSingleClick);
+  // 绝对定位居中于占位容器：偏移用「实际盒宽」反推（含边框），
+  // 保证单按钮的几何中心与 2x2 块中心亚像素级重合，且 4 个按钮严格等大
+  const box = btnBoxPxAt(fs) + CONFIG.btnBorderPx * 2;   // 含边框的实际盒宽
+  const total = slotTotalPxAt(fs) + CONFIG.btnBorderPx * 4;
+  const off = (total - box) / 2;
+  singleBtn.style.position = "absolute";
+  singleBtn.style.left = off + "px";
+  singleBtn.style.top  = off + "px";
+  singleBtn.style.transform = "none";
+  slot.insertBefore(singleBtn, options);
+}
+
+// 单个按钮被点击：立刻打乱 + 爆光波 + 弹幕，随后原地变成 2x2（此后永久 4 按钮）
+function onSingleClick(){
+  if(phase !== "idle") return;
+  phase = "waiting";
+  const p = centerOf(singleBtn);
+  lastOrigin = {x:p.x, y:p.y, local:{dx:0, dy:0}};
+
+  emitWave(p.x, p.y);
+  spawnBarrage(x, p.x, p.y, 0, 0);   // 单按钮本就居于 2x2 中心，无偏移
+
+  setTimeout(()=>{ showOptions(true); }, CONFIG.btnSwitchDelay);
+}
+
+// 显示 / 重新打乱 2x2 选项（ABCD 始终不动）
+function showOptions(firstTime){
+  phase = "choosing";
+  optionsShownAt = performance.now();
+  fastArmed = true;
+  started = true;
+
+  if(singleBtn){ singleBtn.remove(); singleBtn = null; }
+  options.innerHTML = "";
+  options.style.display = "grid";
+
+  const fs = baseFontPx();
+  const arr = shuffle(CONFIG.optionPool.slice());
+
+  arr.forEach((label, i)=>{
+    const wrap = document.createElement('div');
+    wrap.className = 'optWrap';
+
+    const b = document.createElement('div');
+    styleButton(b, fs);
+    b.textContent = label;
+
+    // 记住每个格子相对按钮块中心的偏移，resize 时能对准原来的发出点
+    const col = i % 2, row = Math.floor(i / 2);
+    const b2 = btnBoxPxAt(fs), gap = fs * CONFIG.btnGapEm;
+    const total = b2 * 2 + gap;
+    b.dataset.dx = (col * (b2 + gap) + b2/2 - total/2);
+    b.dataset.dy = (row * (b2 + gap) + b2/2 - total/2);
+
+    const cross = document.createElement('div');
+    cross.className = 'cross';
+
+    b.addEventListener('click', ()=> onOptionClick(label, b, cross));
+    wrap.appendChild(b);
+    wrap.appendChild(cross);
+    options.appendChild(wrap);
+  });
+
+  // 若刚才的动画还在播，让弹幕继续从刚点过的那颗按钮发出
+  if(lastOrigin) realignOrigin();
+}
+
+// 把 lastOrigin 按当前布局换算回视口坐标
+function realignOrigin(){
+  const btn = options.children[lastOrigin.index || 0]?.firstChild;
+  if(!btn) return;
+  const p = centerOf(btn);
+  lastOrigin.x = p.x;
+  lastOrigin.y = p.y;
+}
+
+function centerOf(el){
+  const r = el.getBoundingClientRect();
+  return {x: r.left + r.width/2, y: r.top + r.height/2};
+}
+
+// 选项被点击：正确→重播动画并立刻打乱；错误→红叉 + x 重置
+function onOptionClick(label, btnEl, crossEl){
+  if(phase !== "choosing") return;
+  const dt = performance.now() - optionsShownAt;
+
+  if(label === CONFIG.correctKey){
+    const p = centerOf(btnEl);
+    const idx = [...options.children].findIndex(w=>w.firstChild === btnEl);
+    lastOrigin = {x:p.x, y:p.y, index: Math.max(0, idx), off: btnOffset(idx)};
+
+    if(fastArmed && dt <= CONFIG.fastWindow){
+      x += CONFIG.addPerHit;      // 窗口内点中：加成
+    }else{
+      x = CONFIG.resetCount;      // 超时点中：重置
+    }
+
+    emitWave(p.x, p.y);
+    // 传入该按钮相对 2x2 中心的偏移，弹幕才会从「被点的那个按钮」射出
+    const of = btnOffset(idx);
+    spawnBarrage(x, p.x, p.y, of.dx, of.dy);
+
+    phase = "waiting";
+    fastArmed = false;
+    // 立刻打乱按钮顺序，动画期间就是新的排列
+    showOptions(false);
+  }else{
+    x = CONFIG.resetCount;
+    fastArmed = false;
+    crossEl.style.display = "block";
+    btnEl.style.borderColor = "#e11";
+    btnEl.style.pointerEvents = "none";
+  }
+}
+
+/* ---------------------- 光波（纯白、粗、渐变） ---------------------- */
+function emitWave(cx, cy){
+  const maxR = Math.hypot(
+    Math.max(cx, window.innerWidth - cx),
+    Math.max(cy, window.innerHeight - cy)
+  ) * 1.15;
+
+  const wave = document.createElement('div');
+  wave.className = 'wave';
+  wave.style.left = cx + "px";
+  wave.style.top  = cy + "px";
+  wave.style.width  = (maxR*2) + "px";
+  wave.style.height = (maxR*2) + "px";
+
+  // 环带按「屏幕像素」固定粗细：放大时不会越变越厚、最后糊满全屏
+  const t = Math.max(8, CONFIG.waveThicknessMax);
+  const toPct = px => Math.min(49, (px / Math.max(maxR, 1)) * 100);
+  const band = toPct(t);
+  const soft = toPct(t * 0.9);
+  const c = CONFIG.waveColor;
+  // 内核透明 → 环带纯白实心最亮 → 外缘柔化淡出
+  wave.style.background =
+    `radial-gradient(circle,
+      rgba(${c},0)    0%,
+      rgba(${c},0)    ${50 - soft}%,
+      rgba(${c},0.5)  ${50 - band}%,
+      rgba(${c},1)    ${50 - band*0.4}%,
+      rgba(${c},1)    ${50 + band*0.4}%,
+      rgba(${c},0.5)  ${50 + band}%,
+      rgba(${c},0)    ${50 + soft}%,
+      rgba(${c},0)    100%)`;
+  stage.appendChild(wave);
+
+  const dur = CONFIG.waveDuration;
+  const start = performance.now();
+  function step(now){
+    let p = (now - start) / dur;
+    if(p > 1) p = 1;
+    wave.style.transform = `translate(-50%,-50%) scale(${p})`;
+    // 前半段保持纯白，后半段快速消散，避免大环长时间盖住画面
+    wave.style.opacity = String(p < 0.45 ? 1 : Math.max(0, (1 - p) / 0.55));
+    if(p < 1) requestAnimationFrame(step);
+    else wave.remove();
+  }
+  requestAnimationFrame(step);
+}
+
+/* ---------------------- 弹幕：从按钮放射状喷射、由小变大 ---------------------- */
+function rand(a,b){ return a + Math.random()*(b-a); }
+
+/* 环形均匀铺开的基础角度 + 抖动，保证是"放射状"而不是堆叠闪现 */
+function radialAngles(count, spread){
+  const step = (Math.PI*2) / count;
+  const off = Math.random()*Math.PI*2;
+  const arr = [];
+  for(let i=0;i<count;i++){
+    arr.push(off + i*step + rand(-spread, spread)*step);
+  }
+  return arr;
+}
+
+// 平滑非线性曲线：smoothstep 打底 + 幂函数调性子，两端速度都为 0，中间不匀速
+function growCurve(t){
+  const e = CONFIG.barrageGrowEase;
+  const s = t*t*(3 - 2*t);              // smoothstep：起止平滑，无突兀起步/刹车
+  const p = Math.pow(t, e);             // 幂函数：非线性主曲线
+  return s*(1 - e*0.45) + p*(e*0.45);   // 混合，e 越小越接近纯 smoothstep
+}
+
+function spawnBarrage(count, cx, cy, offX, offY){
+  // 关键：#barrage 是相对 #viewport 定位的层，而 cx/cy 是「视口坐标」。
+  // 两者原点不一定重合（#viewport 可能未铺满视口、#line 可能被 scale 缩放），
+  // 必须先减去弹幕层自身的视口偏移，否则弹幕会从按钮旁边凭空冒出来。
+  const layer = barrage.getBoundingClientRect();
+  const ox = layer.left, oy = layer.top;
+  const angles = radialAngles(count, CONFIG.barrageSpread);
+  const dt0 = 16;   // 每帧按 16ms 折算，保证不同刷新率下速度一致
+
+  for(let i=0;i<count;i++){
+    const el = document.createElement('div');
+    el.className = 'bm';
+    el.textContent = CONFIG.prefixText + CONFIG.correctKey;
+
+    const size = Math.round(rand(CONFIG.barrageMinSize, CONFIG.barrageMaxSize));
+    el.style.fontSize = size + "px";
+    el.style.color = `hsl(${Math.floor(rand(0,360))},90%,60%)`;
+
+    // 放射：角度由环向决定，速度沿该方向，横向偏摆极小
+    const ang = angles[i];
+    const speed = rand(CONFIG.barrageMinSpeed, CONFIG.barrageMaxSpeed);
+    const vx = Math.cos(ang)*speed;
+    let   vy = Math.sin(ang)*speed;
+
+    const rot = rand(0,360);
+    const spin = rand(-CONFIG.barrageMaxSpin, CONFIG.barrageMaxSpin) * dt0;
+
+    // 贴着按钮中心以极小尺寸起步（0.04≈看不见），再从小到大"射"出来
+    let scale = CONFIG.barrageStartScale;
+    // 层内坐标：原点严格等于按钮中心，只加极小抖动避免文字完全叠成一坨
+    const j = CONFIG.barrageJitter * Math.min(size, 34);
+    let px = cx - ox + (offX || 0) + rand(-j, j);
+    let py = cy - oy + (offY || 0) + rand(-j, j);
+    el.style.left = px.toFixed(2) + "px";
+    el.style.top  = py.toFixed(2) + "px";
+    el.style.opacity = "0";
+    el.style.transform = `translate(-50%,-50%) scale(${scale}) rotate(${rot}deg)`;
+    barrage.appendChild(el);
+
+    const start = performance.now();
+    let angle = rot;
+    function step(now){
+      const age = now - start;
+      const life = age / CONFIG.barrageLife;
+      if(life >= 1){ el.remove(); return; }
+
+      const dt = Math.min(2.5, (now - (step.last || now)) / dt0);
+      step.last = now;
+
+      // 前半段加速度冲出，后半段匀速漂移 —— 有"发射"的爆发感
+      const boost = age < CONFIG.barrageBoostTime ? 1 + 1.9*(1 - age/CONFIG.barrageBoostTime) : 1;
+      px += vx * boost * dt;
+      py += vy * boost * dt;
+      vy += 0.045 * dt;                 // 轻微重力
+      angle += spin * dt;
+
+      // 生成阶段：从按钮处一点开始持续长大，直到满尺寸；之后保持飞行
+      if(scale < CONFIG.barragePopScale){
+        // 非线性平滑生长：起步慢 → 中段快 → 收尾缓，不是线性直接撑大
+        const g = Math.min(1, age / CONFIG.barrageGrowTime);
+        const k = growCurve(g);
+        scale = CONFIG.barrageStartScale + (CONFIG.barragePopScale - CONFIG.barrageStartScale) * k;
+      }
+      const out = Math.min(1, Math.max(0, (life - 0.72) / 0.28));   // 尾段淡出
+
+      el.style.left = px.toFixed(2) + "px";
+      el.style.top  = py.toFixed(2) + "px";
+      // 透明度跟随生长进度并略微滞后：很小的时候几乎不可见，随长大逐渐「浮现」
+      const gNow = Math.min(1, age / CONFIG.barrageGrowTime);
+      const appear = Math.min(1, Math.max(0,
+                     (gNow - CONFIG.barrageFadeIn) / Math.max(0.05, 1 - CONFIG.barrageFadeIn)));
+      el.style.opacity = (appear * (1 - out)).toFixed(3);
+      el.style.transform = `translate(-50%,-50%) scale(${scale.toFixed(3)}) rotate(${angle.toFixed(1)}deg)`;
+      requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  }
+}
+
+/* ---------------------- 工具 ---------------------- */
+// 第 idx 个按钮相对 2x2 选项块中心的偏移(px)，用于把弹幕原点对齐到被点的按钮
+function btnOffset(idx){
+  const n = options.children.length;
+  if(n <= 0) return {dx:0, dy:0};
+  // 直接用按钮真实外框，边框是否计入尺寸、line 是否被整体 scale 都自动兼容
+  const wrap = options.children[idx] || options.firstChild;
+  const b = wrap.firstChild.getBoundingClientRect();
+  const cell = b.width, gap = 0;   // 外框已含间距，按紧密网格推算即可
+  const cols = n <= 1 ? 1 : 2;
+  const rows = Math.ceil(n / cols);
+  const r = Math.floor(idx / cols), c = idx % cols;
+  const gw = (cols - 1) * (cell + gap), gh = (rows - 1) * (cell + gap);
+  return {dx: c*(cell+gap) - gw/2, dy: r*(cell+gap) - gh/2};
+}
+
+function shuffle(a){
+  for(let i=a.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [a[i],a[j]] = [a[j],a[i]];
+  }
+  return a;
+}
+
+// 视口变化时重排：未开始则重建单行；已进入 4 按钮模式则原地重建选项
+window.addEventListener('resize', ()=>{
+  curFontPx = computeFontPx();
+  if(!started){
+    renderSingleLine();
+  }else{
+    lockSlot();
+    if(phase === "choosing" || phase === "waiting"){
+      showOptions(false);
+      phase = "choosing";
+    }
+  }
+  // 重新对齐光波/弹幕发出点，避免从错位处飞出
+  if(lastOrigin) realignOrigin();
+});
+
+// 启动
+renderSingleLine();
+</script>
+</body>
+</html>
